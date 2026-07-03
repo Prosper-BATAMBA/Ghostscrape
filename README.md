@@ -150,6 +150,20 @@ Le scraping web est dominé par deux approches : les solutions **programmatiques
 
 ## Installation
 
+### Option rapide — Scripts automatisés (Windows)
+
+```powershell
+# 1. Tout installer (vérifie Python 3.12 + Node 18+, venv, pip install, npm install)
+.\setup.ps1
+
+# 2. Lancer backend + frontend en parallèle
+.\start-dev.ps1
+```
+
+Puis chargez l'extension dans Chrome → [étape 3](#3-extension-chrome).
+
+### Option manuelle
+
 ### 1. Backend (Python/FastAPI)
 
 ```bash
@@ -258,6 +272,8 @@ GhostScrape/
 ├── scripts/
 │   └── generate-pdf.js       # Génération du PDF via Puppeteer/Edge
 │
+├── setup.ps1                 # Script d'installation automatisé (prérequis + dépendances)
+├── start-dev.ps1             # Lance backend + frontend en parallèle
 ├── CAHIER_DES_CHARGES.md     # Cahier des charges complet (7 parties, 14 diagrammes)
 ├── CAHIER_DES_CHARGES.pdf    # Version PDF générée
 ├── Makefile                  # Automatisation build/dev
