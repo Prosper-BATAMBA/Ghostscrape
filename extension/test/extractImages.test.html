@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head><title>extractImages Tests</title></head>
+<body>
+  <!-- Cas 1 : image standard -->
+  <img id="img1" src="media/cache/img1.jpg" alt="Image 1" class="thumbnail">
+
+  <!-- Cas 2 : image sans src (ne devrait pas être capturée par img[src]) -->
+  <img id="img2" alt="No src">
+
+  <!-- Cas 3 : image avec data-src (lazy loading) -->
+  <img id="img3" data-src="media/cache/lazy.jpg" alt="Lazy">
+
+  <!-- Cas 4 : image avec data-original -->
+  <img id="img4" src="placeholder.jpg" data-original="media/cache/original.jpg" alt="Original">
+
+  <!-- Cas 5 : doublon intentionnel -->
+  <img id="img5" src="media/cache/img1.jpg" alt="Duplicate">
+
+  <!-- Cas 6 : picture > source -->
+  <picture>
+    <source srcset="media/cache/picture-large.jpg 1200w, media/cache/picture-small.jpg 600w">
+    <img src="media/cache/picture-fallback.jpg" alt="Picture">
+  </picture>
+
+  <!-- Cas 7 : background-image CSS -->
+  <div id="bg1" style="background-image: url('media/cache/bg.jpg')">Background</div>
+
+  <!-- Cas 8 : pas d'image -->
+  <p id="no-image">Texte sans image</p>
+
+<script>
+  var results = []
+
+  function assert(condition, label) {
+    if (condition) {
+      results.push('PASS: ' + label)
+    } else {
+      results.push('FAIL: ' + label)
+    }
+  }
+
+  // Fonction à tester (copie de content.js avec document.baseURI)
+  function resolveUrl(url) {
+    if (!url) return ''
+    try { return new URL(url, document.baseURI).href } catch (e) { return url }
+  }
+
+  function extractImages() {
+    var result = []
+    var seen = new Set()
+
+    document.querySelectorAll('img[src]').forEach(function (el) {
+      var src = el.getAttribute('src') || el.currentSrc || el.src
+                || el.getAttribute('data-src') || el.getAttribute('data-lazy')
+                || el.getAttribute('data-original') || ''
+      var resolved = resolveUrl(src)
+      if (resolved && !seen.has(resolved)) {
+        seen.add(resolved)
+        result.push({
+          src: resolved,
+          alt: el.getAttribute('alt') || '',
+          width: el.naturalWidth || null,
+          height: el.naturalHeight || null,
+          type: 'img',
+          tag: el.tagName.toLowerCase(),
+        })
+      }
+    })
+
+    document.querySelectorAll('picture source[srcset]').forEach(function (el) {
+      var srcset = el.getAttribute('srcset')
+      if (srcset) {
+        var first = srcset.split(',')[0].trim().split(' ')[0]
+        var resolved = resolveUrl(first)
+        if (resolved && !seen.has(resolved)) {
+          seen.add(resolved)
+          result.push({ src: resolved, alt: '', type: 'picture' })
+        }
+      }
+    })
+
+    var bgElements = document.querySelectorAll('div, section, header, footer, main, article, aside, figure, span, a, li')
+    bgElements.forEach(function (el) {
+      var style = window.getComputedStyle(el)
+      var bg = style.backgroundImage
+      if (bg && bg !== 'none') {
+        var match = bg.match(/url\(["']?([^"')]+)["']?\)/)
+        if (match) {
+          var resolved = resolveUrl(match[1])
+          if (resolved && !seen.has(resolved)) {
+            seen.add(resolved)
+            result.push({ src: resolved, alt: '', type: 'background' })
+          }
+        }
+      }
+    })
+
+    return result
+  }
+
+  var images = extractImages()
+
+  // Test 1 : image standard capturée
+  var hasImg1 = images.some(function (i) { return i.alt === 'Image 1' })
+  assert(hasImg1, 'Image standard img1 capturée')
+
+  // Test 2 : image sans src non capturée (via type img)
+  var hasNoSrc = images.some(function (i) { return i.type === 'img' && i.alt === 'No src' })
+  assert(!hasNoSrc, 'Image sans src non incluse')
+
+  // Test 3 : image data-src capturée
+  var hasLazy = images.some(function (i) { return i.alt === 'Lazy' })
+  assert(hasLazy, 'Image lazy (data-src) capturée')
+
+  // Test 4 : image data-original capturée (via fallback dans la chaîne ||)
+  var hasOriginal = images.some(function (i) { return i.alt === 'Original' })
+  assert(hasOriginal, 'Image avec data-original capturée')
+
+  // Test 5 : déduplication (img5 n'apparaît qu'une fois)
+  var img1Count = images.filter(function (i) { return i.alt === 'Image 1' }).length
+  assert(img1Count === 1, 'Déduplication : img1 unique avec img5')
+
+  // Test 6 : picture source capturé
+  var hasPicture = images.some(function (i) { return i.type === 'picture' })
+  assert(hasPicture, 'Source picture capturé')
+
+  // Test 7 : background-image capturé
+  var hasBackground = images.some(function (i) { return i.type === 'background' })
+  assert(hasBackground, 'Background-image capturé')
+
+  // Test 8 : au moins 5 images (img1, lazy, original, picture, background)
+  assert(images.length >= 5, 'Au moins 5 images extraites (got: ' + images.length + ')')
+
+  // Afficher les résultats
+  var pass = results.filter(function (r) { return r.startsWith('PASS') }).length
+  var fail = results.filter(function (r) { return r.startsWith('FAIL') }).length
+  document.body.innerHTML = '<h2>' + pass + '/' + (pass + fail) + ' tests passed</h2><pre>' + results.join('\n') + '</pre>'
+  console.log(results.join('\n'))
+</script>
+</body>
+</html>

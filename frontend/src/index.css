@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.surface.600') theme('colors.surface.800');
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: theme('colors.surface.800');
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: theme('colors.surface.600');
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.surface.500');
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface-800/60 backdrop-blur-xl border border-surface-700/50 rounded-xl;
+  }
+
+  .glass-panel-solid {
+    @apply bg-surface-800 border border-surface-700/50 rounded-xl;
+  }
+
+  .input-ghost {
+    @apply bg-surface-800 border border-surface-700 rounded-lg px-4 py-2.5 
+           text-surface-100 placeholder:text-surface-400
+           focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/60
+           transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-white px-5 py-2.5 rounded-lg font-medium text-sm
+           hover:bg-accent-600 active:bg-accent-700
+           focus:outline-none focus:ring-2 focus:ring-accent/40
+           transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-700 text-surface-200 px-5 py-2.5 rounded-lg font-medium text-sm
+           hover:bg-surface-600 active:bg-surface-500
+           focus:outline-none focus:ring-2 focus:ring-surface-500/40
+           transition-all duration-200;
+  }
+
+  .skeleton {
+    @apply bg-surface-700/60 rounded-lg animate-pulse;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium
+           bg-surface-700 text-surface-300 border border-surface-600/50;
+  }
+}

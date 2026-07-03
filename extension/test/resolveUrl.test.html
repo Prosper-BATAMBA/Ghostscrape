@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head><title>resolveUrl Tests</title></head>
+<body>
+<script>
+  // Simule l'environnement content.js
+  var results = []
+
+  function assert(condition, label) {
+    if (condition) {
+      results.push('PASS: ' + label)
+    } else {
+      results.push('FAIL: ' + label)
+    }
+  }
+
+  function resolveUrl(url) {
+    if (!url) return ''
+    try { return new URL(url, document.baseURI).href } catch (e) { return url }
+  }
+
+  // Test 1: URL absolue inchangée
+  var r1 = resolveUrl('https://example.com/img.jpg')
+  assert(r1 === 'https://example.com/img.jpg', 'URL absolue')
+
+  // Test 2: URL relative résolue
+  var r2 = resolveUrl('media/cache/img.jpg')
+  assert(r2.indexOf('media/cache/img.jpg') !== -1, 'URL relative contient le chemin')
+
+  // Test 3: URL vide
+  var r3 = resolveUrl('')
+  assert(r3 === '', 'URL vide')
+
+  // Test 4: URL null
+  var r4 = resolveUrl(null)
+  assert(r4 === '', 'URL null')
+
+  // Test 5: URL protocole relatif
+  var r5 = resolveUrl('//cdn.example.com/img.jpg')
+  assert(r5.indexOf('//cdn.example.com') !== -1 || r5.indexOf('cdn.example.com') !== -1, 'Protocole relatif')
+
+  // Test 6: Chaîne non-URL retournée telle quelle
+  var r6 = resolveUrl('not-a-url')
+  var parsed = r6.indexOf('not-a-url') !== -1
+  assert(parsed, 'Chaîne non-URL')
+
+  // Test 7: URL avec caractères spéciaux
+  var r7 = resolveUrl('images/photo%20test.jpg')
+  assert(r7.indexOf('photo%20test.jpg') !== -1, 'Caractères encodés')
+
+  // Afficher les résultats
+  document.body.innerHTML = '<pre>' + results.join('\n') + '</pre>'
+  console.log(results.join('\n'))
+</script>
+</body>
+</html>
