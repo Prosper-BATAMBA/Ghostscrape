@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$NoBrowser
 )
 
@@ -7,26 +7,23 @@ $rootDir = $PSScriptRoot
 
 function Write-Banner {
     Clear-Host
-    Write-Host "╔═══════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║     GhostScrape — Développement       ║" -ForegroundColor Cyan
-    Write-Host "╚═══════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "     GhostScrape - Developpement" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
 }
 
 function Test-Ready($name, $path, $label) {
     if (-not (Test-Path $path)) {
-        Write-Host "  ❌  $name introuvable : $label" -ForegroundColor Red
+        Write-Host "  [FAIL] $name introuvable : $label" -ForegroundColor Red
         Write-Host "      Lancez d'abord .\setup.ps1" -ForegroundColor Yellow
         return $false
     }
     return $true
 }
 
-# ──────────────────────────────────────────────
-# VÉRIFICATIONS AVANT LANCEMENT
-# ──────────────────────────────────────────────
 Write-Banner
 
-Write-Host "`n🔍  Vérifications..." -ForegroundColor Cyan
+Write-Host "`nVerifications..." -ForegroundColor Cyan
 
 $checks = @(
     @{ Name = "Backend venv"    ; Path = "$rootDir\backend\venv\Scripts\uvicorn.exe" ; Label = "backend\venv\Scripts\uvicorn.exe" },
@@ -45,21 +42,17 @@ if (-not $allReady) {
     exit 1
 }
 
-Write-Host "  ✅  Tout est prêt" -ForegroundColor Green
+Write-Host "  Tout est pret" -ForegroundColor Green
 
-# ──────────────────────────────────────────────
-# LANCEMENT DES SERVEURS
-# ──────────────────────────────────────────────
 Write-Banner
 
-Write-Host "`n🚀  Démarrage des serveurs..." -ForegroundColor Cyan
-Write-Host "    Backend  → http://localhost:8000" -ForegroundColor White
-Write-Host "    Frontend → http://localhost:3000" -ForegroundColor White
-Write-Host "    Dashboard → http://localhost:3000" -ForegroundColor White
-Write-Host "`n    Appuyez sur Ctrl+C pour tout arrêter" -ForegroundColor DarkGray
+Write-Host "`nDemarrage des serveurs..." -ForegroundColor Cyan
+Write-Host "    Backend  -> http://localhost:8000" -ForegroundColor White
+Write-Host "    Frontend -> http://localhost:3000" -ForegroundColor White
+Write-Host "    Dashboard -> http://localhost:3000" -ForegroundColor White
+Write-Host "`n    Appuyez sur Ctrl+C pour tout arreter" -ForegroundColor DarkGray
 Write-Host ""
 
-# Backend
 $backendJob = Start-Job -Name "ghostscrape-backend" -ScriptBlock {
     param($root)
     $venv = Join-Path $root "backend\venv\Scripts"
@@ -68,20 +61,17 @@ $backendJob = Start-Job -Name "ghostscrape-backend" -ScriptBlock {
     uvicorn app.main:app --reload --port 8000 --log-level info
 } -ArgumentList $rootDir
 
-# Frontend
 $frontendJob = Start-Job -Name "ghostscrape-frontend" -ScriptBlock {
     param($root)
     Set-Location (Join-Path $root "frontend")
     npm run dev
 } -ArgumentList $rootDir
 
-# Ouvrir le navigateur
 if (-not $NoBrowser) {
     Start-Sleep -Seconds 3
     Start-Process "http://localhost:3000"
 }
 
-# Surveiller et afficher les logs
 try {
     while ($backendJob.State -eq "Running" -and $frontendJob.State -eq "Running") {
         $backendLog = Receive-Job -Job $backendJob
@@ -97,10 +87,10 @@ try {
         Start-Sleep -Milliseconds 500
     }
 } finally {
-    Write-Host "`n🛑  Arrêt des serveurs..." -ForegroundColor Yellow
+    Write-Host "`nArret des serveurs..." -ForegroundColor Yellow
     Stop-Job -Job $backendJob
     Stop-Job -Job $frontendJob
     Remove-Job -Job $backendJob
     Remove-Job -Job $frontendJob
-    Write-Host "  ✅  Arrêté." -ForegroundColor Green
+    Write-Host "  Arrete." -ForegroundColor Green
 }
