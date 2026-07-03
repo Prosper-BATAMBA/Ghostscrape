@@ -6,9 +6,9 @@ $ErrorActionPreference = "Stop"
 $Global:allOk = $true
 
 function Step-Title($title) {
-    Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+    Write-Host "`n========================================" -ForegroundColor DarkGray
     Write-Host "  $title" -ForegroundColor Cyan
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+    Write-Host "========================================" -ForegroundColor DarkGray
 }
 
 function Step-Result($ok, $msg) {
@@ -18,6 +18,32 @@ function Step-Result($ok, $msg) {
         Write-Host "  [FAIL]  $msg" -ForegroundColor Red
         $Global:allOk = $false
     }
+}
+
+function Find-Python {
+    $candidates = @(
+        @{ cmd = "python"   ; arg = "--version" ; label = "python" },
+        @{ cmd = "python3"  ; arg = "--version" ; label = "python3" },
+        @{ cmd = "py"       ; arg = "-c `"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')`"" ; label = "py" }
+    )
+
+    foreach ($c in $candidates) {
+        try {
+            $v = Invoke-Expression "& $($c.cmd) $($c.arg) 2>`$null"
+            if (-not $v) { continue }
+            $verString = if ($v -is [array]) { $v[0] } else { $v }
+            $match = [regex]::Match($verString, "(\d+)\.(\d+)")
+            if (-not $match.Success) { continue }
+            $major = [int]$match.Groups[1].Value
+            $minor = [int]$match.Groups[2].Value
+            if ($major -eq 3 -and $minor -ge 12) {
+                return @{ cmd = $c.cmd; version = "$major.$minor" }
+            }
+        } catch {
+            continue
+        }
+    }
+    return $null
 }
 
 function Check-Command($name, $cmd, $versionArg, $minVersion, $versionPattern) {
@@ -46,27 +72,17 @@ Write-Host "       GhostScrape - Setup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 Step-Title "Verification des prerequis"
-Check-Command "Python" "py" "-3.12 --version" "3.12.0" "Python (\d+\.\d+\.\d+)"
-$pythonOk = $?
+
+$pythonInfo = Find-Python
+if ($pythonInfo) {
+    $pythonCmd = $pythonInfo.cmd
+    Step-Result $true "Python $($pythonInfo.version) (commande : $pythonCmd)"
+} else {
+    Step-Result $false "Python 3.12+ introuvable (essaye: python, python3, py)"
+}
+
 Check-Command "Node.js" "node" "--version" "18.0.0" "v(\d+\.\d+\.\d+)"
 $nodeOk = $?
-
-if (-not $pythonOk) {
-    Write-Host "  -> Fallback : tentative avec 'python'..." -ForegroundColor Yellow
-    try {
-        $v = & python --version 2>$null
-        $match = [regex]::Match($v, "Python (\d+\.\d+\.\d+)")
-        if ($match.Success) {
-            $ver = [Version]$match.Groups[1].Value
-            $ok = $ver -ge [Version]"3.12.0"
-            $label = if ($ok) { '(OK)' } else { '(3.12 minimum)' }
-            Step-Result $ok "python $ver $label"
-            $pythonOk = $ok
-        }
-    } catch {
-        Step-Result $false "Python introuvable (ni 'py', ni 'python')"
-    }
-}
 
 if (-not $Global:allOk) {
     Write-Host "`nDes prerequis sont manquants. Installez-les puis relancez setup.ps1" -ForegroundColor Yellow
@@ -81,8 +97,12 @@ $venvPath = "backend\venv"
 $pipPath = "$venvPath\Scripts\pip"
 
 if (-not (Test-Path "$venvPath\Scripts\python.exe")) {
-    Write-Host "  -> Creation du venv..." -ForegroundColor Yellow
-    & py -3.12 -m venv --clear $venvPath
+    Write-Host "  -> Creation du venv avec $pythonCmd..." -ForegroundColor Yellow
+    if ($pythonCmd -eq "py") {
+        & py -m venv --clear $venvPath
+    } else {
+        & $pythonCmd -m venv --clear $venvPath
+    }
     if (-not $?) { Step-Result $false "Echec creation venv" ; exit 1 }
     Step-Result $true "Environnement virtuel cree"
 } else {
@@ -90,7 +110,7 @@ if (-not (Test-Path "$venvPath\Scripts\python.exe")) {
 }
 
 Write-Host "  -> Mise a jour pip..." -ForegroundColor Yellow
-& $pipPath install --upgrade pip setuptools wheel --quiet
+& $pythonCmd -m pip install --upgrade pip setuptools wheel --quiet 2>$null
 Step-Result $? "pip a jour"
 
 Write-Host "  -> Installation des dependances..." -ForegroundColor Yellow
