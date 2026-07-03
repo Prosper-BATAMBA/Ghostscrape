@@ -1,0 +1,305 @@
+# GhostScrape — Scraping web visuel, local & gratuit
+
+**GhostScrape** est une plateforme de web scraping 100% locale qui permet d'extraire le contenu d'une page web (titres, images, liens, tableaux, métadonnées, sélecteurs CSS personnalisés) en temps réel, sans écrire une ligne de code.
+
+| Composant | Technologie | Version |
+|---|---|---|
+| Extension Chrome | Manifest V3 | 0.3.0 |
+| Backend | Python / FastAPI | 0.2.0 |
+| Dashboard | React 18 + Vite 5 + Tailwind 3 | 0.1.0 |
+
+---
+
+## Table des matières
+
+- [Aperçu](#aperçu)
+- [Fonctionnalités](#fonctionnalités)
+- [Architecture](#architecture)
+- [Stack technique](#stack-technique)
+- [Prérequis](#prérequis)
+- [Installation](#installation)
+  - [1. Backend (Python/FastAPI)](#1-backend-pythonfastapi)
+  - [2. Frontend (React/Vite)](#2-frontend-reactvite)
+  - [3. Extension Chrome](#3-extension-chrome)
+  - [4. Makefile (optionnel)](#4-makefile-optionnel)
+- [Utilisation](#utilisation)
+- [Structure du projet](#structure-du-projet)
+- [Tests](#tests)
+- [Documentation](#documentation)
+- [Licence](#licence)
+
+---
+
+## Aperçu
+
+Le scraping web est dominé par deux approches : les solutions **programmatiques** (BeautifulSoup, Scrapy, Puppeteer) qui exigent des compétences en développement, et les solutions **SaaS** (Octoparse, ParseHub, Apify) qui sont payantes, hébergent les données chez un tiers et limitent les volumes.
+
+**GhostScrape résout ce problème :**
+
+- Gratuit et open source
+- 100% local — aucune donnée ne quitte votre machine
+- Aucune compétence technique requise — interface visuelle
+- Extraction en temps réel via WebSocket
+- Export CSV et ZIP en un clic
+
+---
+
+## Fonctionnalités
+
+### 🔍 4 modes d'extraction
+
+| Mode | Description |
+|---|---|
+| **FullPage** | Extrait tous les éléments de la page (images, titres, liens, paragraphes, listes) |
+| **DataTypes** | Filtre par type de données : images, tableaux, métadonnées, données structurées |
+| **CssSelector** | Sélecteurs CSS personnalisés saisis librement |
+| **HistoryView** | Historique des sessions d'extraction avec reprise possible |
+
+### ⚡ Temps réel
+
+- L'extension injecte un content script au `document_idle`
+- Les données sont relayées via WebSocket (backend FastAPI)
+- Le dashboard React met à jour l'interface instantanément
+
+### 📦 Export
+
+- **CSV** — données tabulaires (liens, tableaux, sélecteurs CSS)
+- **ZIP** — lots d'images avec métadonnées JSON, pages complètes HTML
+- Génération 100% client (JSZip dans le navigateur)
+
+---
+
+## Architecture
+
+```
+┌──────────────────────────┐       ┌──────────────────────────┐
+│   Extension Chrome MV3   │       │   Dashboard React        │
+│                          │       │   Vite :3000             │
+│  content.js ──port──►    │       │                          │
+│  background.js           │       │  WebSocket ◄────────────┐│
+│       │                  │       │  JSZip / export         ││
+│  offscreen.js (WS) ──────├───────┼────────────────────────┘│
+└──────────────────────────┘       └──────────────────────────┘
+         │                                    │
+         └────────── WebSocket ───────────────┘
+                          │
+               ┌──────────▼──────────┐
+               │  Backend FastAPI     │
+               │  uvicorn :8000       │
+               │                      │
+               │  /ws/extension       │
+               │  /ws/dashboard       │
+               │  /health             │
+               └─────────────────────┘
+```
+
+### Flux de données
+
+1. L'utilisateur navigue sur une page web dans Chrome
+2. Le content script (`content.js`) est injecté automatiquement
+3. Le dashboard React envoie une commande d'extraction (mode + paramètres)
+4. Le backend relaie la commande à l'extension via WebSocket
+5. L'extension exécute l'extraction dans la page et renvoie les résultats
+6. Le dashboard affiche les résultats et permet l'export (CSV/ZIP)
+
+---
+
+## Stack technique
+
+### Extension Chrome
+
+| Technologie | Rôle |
+|---|---|
+| Manifest V3 | Service worker + offscreen document (WebSocket stable) |
+| `content.js` | Injection DOM, 8 extracteurs (images, titres, liens, paragraphes, listes, tableaux, métadonnées, données structurées) |
+| `offscreen.js` | Propriétaire unique de la connexion WebSocket |
+
+### Backend
+
+| Dépendance | Version |
+|---|---|
+| Python | 3.12 |
+| FastAPI | 0.115.6 |
+| Uvicorn | 0.34.0 |
+| Pydantic | 2.10.4 |
+| httpx | 0.28.1 |
+| orjson | 3.10.12 |
+| beautifulsoup4 | 4.12.3 |
+| lxml | 5.3.0 |
+
+### Dashboard
+
+| Dépendance | Version |
+|---|---|
+| React | 18.3.1 |
+| Vite | 5.4.11 |
+| Tailwind CSS | 3.4.17 |
+| Vitest | 4.1.9 |
+| JSZip | 3.10.1 |
+
+---
+
+## Prérequis
+
+- **Python** 3.12.x
+- **Node.js** 18+ (avec npm)
+- **Chrome** ou **Edge** (pour l'extension)
+- **Make** optionnel — `mingw32-make` sur Windows
+
+---
+
+## Installation
+
+### 1. Backend (Python/FastAPI)
+
+```bash
+# Créer l'environnement virtuel
+python3.12 -m venv backend\venv
+
+# Activer l'environnement (Windows)
+backend\venv\Scripts\activate
+
+# Mettre à jour pip et installer les dépendances
+pip install --upgrade pip setuptools wheel
+pip install -r backend\requirements.txt
+
+# Lancer le serveur
+uvicorn app.main:app --reload --port 8000
+```
+
+Le backend est accessible sur `http://localhost:8000`.
+- WebSocket extension : `ws://localhost:8000/ws/extension`
+- WebSocket dashboard : `ws://localhost:8000/ws/dashboard`
+- Health check : `GET http://localhost:8000/health`
+
+### 2. Frontend (React/Vite)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Le frontend est accessible sur `http://localhost:3000`
+
+Le proxy Vite redirige `/api/*` vers `http://localhost:8000`.
+
+### 3. Extension Chrome
+
+1. Ouvrir Chrome et naviguer vers `chrome://extensions`
+2. Activer le **Mode développeur** (coin supérieur droit)
+3. Cliquer sur **Charger l'extension non empaquetée**
+4. Sélectionner le dossier `extension/` du projet
+5. L'icône GhostScrape apparaît dans la barre d'outils
+
+> **Popups et onglets locaux :** l'extension peut nécessiter l'activation des permissions sur les pages `chrome://extensions` ou `localhost` depuis `chrome://extensions/?ignore=localhost` selon la configuration.
+
+### 4. Makefile (optionnel)
+
+```bash
+# Voir les commandes disponibles
+mingw32-make help
+
+# Installer tout
+mingw32-make PYTHON=py -3.12 install-backend
+mingw32-make install-frontend
+
+# Lancer les serveurs
+mingw32-make dev-backend    # Terminal 1
+mingw32-make dev-frontend   # Terminal 2
+```
+
+---
+
+## Utilisation
+
+1. **Lancer le backend** : `uvicorn app.main:app --reload --port 8000`
+2. **Lancer le frontend** : `cd frontend && npm run dev`
+3. **Charger l'extension** dans Chrome via `chrome://extensions`
+4. **Ouvrir le dashboard** : `http://localhost:3000`
+5. **Naviguer** sur n'importe quelle page web
+6. **Choisir un mode** dans la sidebar (FullPage, DataTypes, CssSelector)
+7. **Lancer l'extraction** → les résultats apparaissent en temps réel
+8. **Exporter** en CSV ou ZIP
+
+---
+
+## Structure du projet
+
+```
+GhostScrape/
+├── backend/                  # API Python / FastAPI
+│   ├── app/
+│   │   ├── main.py           # Point d'entrée FastAPI (CORS, /health, WS)
+│   │   └── api/
+│   │       └── endpoint_ws.py # WebSocket relay extension ↔ dashboard
+│   ├── tests/                # Tests pytest
+│   └── requirements.txt      # Dépendances Python
+│
+├── extension/                # Extension Chrome Manifest V3
+│   ├── manifest.json
+│   ├── background.js         # Service worker (gestion cycle de vie offscreen)
+│   ├── content.js            # Content script injecté (8 extracteurs DOM)
+│   ├── offscreen.js          # Propriétaire WebSocket (document hors-écran)
+│   ├── popup.html / popup.js # Popup de contrôle
+│   ├── icons/                # Icones 16/48/128 px
+│   └── test/                 # Tests HTML manuels
+│
+├── frontend/                 # Dashboard React / Vite / Tailwind
+│   ├── src/
+│   │   ├── App.jsx           # Composant racine
+│   │   ├── components/       # UI : Sidebar, ModeCard, ConnectionStatus, etc.
+│   │   ├── hooks/            # Hooks : useExtension, useModeEngine, useSessionHistory
+│   │   ├── services/         # Logique métier : téléchargements, routage, registre
+│   │   └── __tests__/        # Tests Vitest
+│   ├── tailwind.config.js    # Thème sombre personnalisé (surface/accent)
+│   └── vite.config.js        # Dev :3000, proxy /api → :8000
+│
+├── scripts/
+│   └── generate-pdf.js       # Génération du PDF via Puppeteer/Edge
+│
+├── CAHIER_DES_CHARGES.md     # Cahier des charges complet (7 parties, 14 diagrammes)
+├── CAHIER_DES_CHARGES.pdf    # Version PDF générée
+├── Makefile                  # Automatisation build/dev
+└── .gitignore
+```
+
+---
+
+## Tests
+
+```bash
+# Backend (pytest)
+cd backend
+pytest tests/ -v
+
+# Frontend (vitest)
+cd frontend
+npx vitest run
+```
+
+### Backend
+- `test_websocket.py` — validation du relais WebSocket entre extension et dashboard
+
+### Frontend
+- `downloadCsv.test.js` — génération CSV
+- `messageRouter.test.js` — routage des messages WebSocket
+- `modeRegistry.test.js` — registre des modes d'extraction
+
+### Extension
+Tests manuels HTML disponibles dans `extension/test/` :
+- `extractImages.test.html`
+- `resolveUrl.test.html`
+
+---
+
+## Documentation
+
+- **[CAHIER_DES_CHARGES.md](CAHIER_DES_CHARGES.md)** — spécification complète en français (7 parties, 28 sections, 14 diagrammes Mermaid)
+- **[CAHIER_DES_CHARGES.pdf](CAHIER_DES_CHARGES.pdf)** — version PDF générée (1,6 Mo) avec tous les diagrammes rendus en SVG
+
+---
+
+## Licence
+
+GhostScrape est un projet open source. Voir le fichier `LICENSE` pour plus d'informations.
