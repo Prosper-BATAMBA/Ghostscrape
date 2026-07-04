@@ -168,14 +168,33 @@ Le backend embarque **2 moteurs de scraping** :
 
 ## Prérequis
 
-- **Python** 3.12.x
+- **Python** 3.12.x (recommandé, ou via Docker)
 - **Node.js** 18+ (avec npm)
 - **Chrome** ou **Edge** (pour l'extension)
+- **Docker** (optionnel — recommandé pour éviter les problèmes de versions Python)
 - **Make** optionnel — `mingw32-make` sur Windows
 
 ---
 
 ## Installation
+
+### Option Docker (recommandé — multiplateforme)
+
+```bash
+# 1. Builder et lancer tous les services
+docker compose up -d --build
+
+# 2. Charger l'extension dans Chrome (inchangé)
+#    chrome://extensions → Mode développeur → Charger extension non empaquetée → extension/
+```
+
+Le dashboard est accessible sur `http://localhost:3000`.
+Le backend est accessible sur `http://localhost:8000`.
+
+> **Note :** Avant de lancer Docker, builder le frontend :
+> ```bash
+> cd frontend && npm install && npm run build
+> ```
 
 ### Option rapide — Scripts automatisés (Windows)
 
@@ -302,6 +321,10 @@ GhostScrape/
 │   ├── tailwind.config.js    # Thème sombre personnalisé (surface/accent)
 │   └── vite.config.js        # Dev :3000, proxy /api → :8000
 │
+├── Dockerfile                 # Image Docker du backend (Playwright + Python 3.12)
+├── docker-compose.yml         # Orchestration Docker (backend + frontend Nginx)
+├── nginx/
+│   └── default.conf           # Proxy Nginx (API + WebSocket → backend)
 ├── scripts/
 │   └── generate-pdf.js       # Génération du PDF via Puppeteer/Edge
 │
