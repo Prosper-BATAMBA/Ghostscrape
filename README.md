@@ -210,7 +210,7 @@ Le backend est accessible sur `http://localhost:8000`.
 
 ### Option rapide — Scripts automatisés
 
-**Windows :**
+**Windows (PowerShell uniquement) :**
 ```powershell
 .\setup.ps1      # Vérifie Python 3.12 + Node 18+, installe tout
 .\start-dev.ps1  # Lance backend + frontend en parallèle
@@ -227,21 +227,21 @@ Puis chargez l'extension dans Chrome → [étape 3](#3-extension-chrome).
 
 ### Option manuelle
 
+> **Windows :** utilisez impérativement **PowerShell** (pas CMD, pas Git Bash).  
+> **Linux / macOS :** utilisez bash ou zsh standard.
+
 ### 1. Backend (Python/FastAPI)
 
-```bash
+```powershell
 # Créer l'environnement virtuel
 python3.12 -m venv backend\venv
 
-# Activer l'environnement (Windows)
-backend\venv\Scripts\activate
+# Installer les dépendances (sans activation)
+.\backend\venv\Scripts\pip install --upgrade pip setuptools wheel
+.\backend\venv\Scripts\pip install -r backend\requirements.txt
 
-# Mettre à jour pip et installer les dépendances
-pip install --upgrade pip setuptools wheel
-pip install -r backend\requirements.txt
-
-# Lancer le serveur
-uvicorn app.main:app --reload --port 8000
+# Lancer le serveur (rester à la racine du projet)
+.\backend\venv\Scripts\uvicorn app.main:app --reload --port 8000
 ```
 
 Le backend est accessible sur `http://localhost:8000`.
@@ -251,7 +251,7 @@ Le backend est accessible sur `http://localhost:8000`.
 
 ### 2. Frontend (React/Vite)
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
@@ -324,7 +324,7 @@ docker compose up -d
 
 ## Utilisation
 
-1. **Lancer le backend** : `uvicorn app.main:app --reload --port 8000`
+1. **Lancer le backend** : `.\backend\venv\Scripts\uvicorn app.main:app --reload --port 8000` (PowerShell, depuis la racine)
 2. **Lancer le frontend** : `cd frontend && npm run dev`
 3. **Charger l'extension** dans Chrome via `chrome://extensions`
 4. **Ouvrir le dashboard** : `http://localhost:3000`
