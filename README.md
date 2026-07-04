@@ -5,7 +5,7 @@
 | Composant | Technologie | Version |
 |---|---|---|
 | Extension Chrome | Manifest V3 | 0.3.0 |
-| Backend | Python / FastAPI | 0.2.0 |
+| Backend | Python / FastAPI | 0.3.0 |
 | Dashboard | React 18 + Vite 5 + Tailwind 3 | 0.1.0 |
 
 ---
@@ -170,9 +170,12 @@ Le backend embarque **2 moteurs de scraping** :
 
 - **Chrome** ou **Edge** (pour l'extension)
 - **Docker** (recommandé — évite les problèmes de versions Python/Node.js)
+  - Windows : Docker Desktop (WSL2 backend recommandé)
+  - macOS : Docker Desktop ou OrbStack
+  - Linux : Docker Engine + docker compose plugin
 - **Node.js 18+** (uniquement si vous installez sans Docker)
 - **Python 3.12.x** (uniquement si vous installez sans Docker)
-- **Make** optionnel — `mingw32-make` sur Windows
+- **Make** optionnel — `make` (Linux/macOS) ou `mingw32-make` (Windows)
 
 ---
 
@@ -205,14 +208,19 @@ Le backend est accessible sur `http://localhost:8000`.
 1. Charger l'extension dans Chrome : `chrome://extensions` → Mode développeur → Charger extension non empaquetée → dossier `extension/`
 2. Ouvrir `http://localhost:3000` dans Chrome
 
-### Option rapide — Scripts automatisés (Windows)
+### Option rapide — Scripts automatisés
 
+**Windows :**
 ```powershell
-# 1. Tout installer (vérifie Python 3.12 + Node 18+, venv, pip install, npm install)
-.\setup.ps1
+.\setup.ps1      # Vérifie Python 3.12 + Node 18+, installe tout
+.\start-dev.ps1  # Lance backend + frontend en parallèle
+```
 
-# 2. Lancer backend + frontend en parallèle
-.\start-dev.ps1
+**Linux / macOS :**
+```bash
+chmod +x setup.sh run.sh
+./setup.sh       # Vérifie Python 3.12, crée le venv, installe tout
+./run.sh         # Lance backend + frontend en parallèle
 ```
 
 Puis chargez l'extension dans Chrome → [étape 3](#3-extension-chrome).
@@ -263,19 +271,53 @@ Le proxy Vite redirige `/api/*` vers `http://localhost:8000`.
 
 > **Popups et onglets locaux :** l'extension peut nécessiter l'activation des permissions sur les pages `chrome://extensions` ou `localhost` depuis `chrome://extensions/?ignore=localhost` selon la configuration.
 
-### 4. Makefile (optionnel)
+### 4. Makefile (optionnel — cross-platform)
 
 ```bash
 # Voir les commandes disponibles
-mingw32-make help
+make help                      # Linux/macOS
+mingw32-make help              # Windows
 
 # Installer tout
-mingw32-make PYTHON=py -3.12 install-backend
-mingw32-make install-frontend
+make install                   # Linux/macOS
+mingw32-make PYTHON="py -3.12" install  # Windows
 
-# Lancer les serveurs
-mingw32-make dev-backend    # Terminal 1
-mingw32-make dev-frontend   # Terminal 2
+# Lancer les serveurs (terminal 1 : backend, terminal 2 : frontend)
+make dev-backend               # Linux/macOS
+make dev-frontend              # Linux/macOS
+```
+
+---
+
+## Dépannage
+
+### Docker Desktop — overlayfs / read-only file system (Windows)
+
+Si le build Docker échoue avec `read-only file system` :
+```powershell
+# 1. Nettoyer le cache Docker
+docker system prune -a
+
+# 2. Redémarrer Docker Desktop (icône tray → Restart)
+
+# 3. Rebuilder
+docker compose build --no-cache backend
+```
+
+### Docker ne répond pas (timeout sur `docker ps`)
+
+Docker Desktop est probablement arrêté :
+1. Lancez Docker Desktop manuellement depuis le menu Démarrer
+2. Attendez que l'icône soit stable (pas d'animation)
+3. Relancez la commande
+
+### Backend — CMD python3 au lieu de uvicorn
+
+Si le conteneur backend crash avec `python3: can't open file '...main.py'` :
+```powershell
+# Reconstruire l'image avec le bon CMD
+docker compose build --no-cache backend
+docker compose up -d
 ```
 
 ---
@@ -330,6 +372,7 @@ GhostScrape/
 │   ├── tailwind.config.js    # Thème sombre personnalisé (surface/accent)
 │   └── vite.config.js        # Dev :3000, proxy /api → :8000
 │
+├── .dockerignore              # Build context Docker (exclut fichiers inutiles)
 ├── Dockerfile                 # Image Docker du backend (Playwright + Python 3.12)
 ├── docker-compose.yml         # Orchestration Docker (backend + frontend Nginx + build frontend)
 ├── nginx/
@@ -337,10 +380,12 @@ GhostScrape/
 ├── scripts/
 │   └── generate-pdf.js       # Génération du PDF via Puppeteer/Edge
 │
-├── setup.ps1                 # Script d'installation automatisé (prérequis + dépendances)
-├── start-dev.ps1             # Lance backend + frontend en parallèle
+├── setup.ps1                 # Script d'installation Windows (PowerShell)
+├── setup.sh                  # Script d'installation Unix (bash)
+├── start-dev.ps1             # Lance backend + frontend (Windows)
+├── run.sh                    # Lance backend + frontend (Unix)
 ├── CAHIER_DES_CHARGES.pdf    # Cahier des charges complet (7 parties, 14 diagrammes)
-├── Makefile                  # Automatisation build/dev
+├── Makefile                  # Automatisation build/dev (cross-platform)
 └── .gitignore
 ```
 
