@@ -168,10 +168,10 @@ Le backend embarque **2 moteurs de scraping** :
 
 ## Prérequis
 
-- **Python** 3.12.x (recommandé, ou via Docker)
-- **Node.js** 18+ (avec npm)
 - **Chrome** ou **Edge** (pour l'extension)
-- **Docker** (optionnel — recommandé pour éviter les problèmes de versions Python)
+- **Docker** (recommandé — évite les problèmes de versions Python/Node.js)
+- **Node.js 18+** (uniquement si vous installez sans Docker)
+- **Python 3.12.x** (uniquement si vous installez sans Docker)
 - **Make** optionnel — `mingw32-make` sur Windows
 
 ---
@@ -180,21 +180,30 @@ Le backend embarque **2 moteurs de scraping** :
 
 ### Option Docker (recommandé — multiplateforme)
 
+**Sans Node.js installé :**
 ```bash
-# 1. Builder et lancer tous les services
-docker compose up -d --build
+# 1. Builder le frontend (une seule fois)
+docker compose run frontend-builder
 
-# 2. Charger l'extension dans Chrome (inchangé)
-#    chrome://extensions → Mode développeur → Charger extension non empaquetée → extension/
+# 2. Lancer tous les services
+docker compose up -d
+```
+
+**Avec Node.js installé :**
+```bash
+# 1. Builder le frontend manuellement
+cd frontend && npm install && npm run build
+
+# 2. Lancer tous les services
+docker compose up -d --build
 ```
 
 Le dashboard est accessible sur `http://localhost:3000`.
 Le backend est accessible sur `http://localhost:8000`.
 
-> **Note :** Avant de lancer Docker, builder le frontend :
-> ```bash
-> cd frontend && npm install && npm run build
-> ```
+**Étapes suivantes (quel que soit le mode) :**
+1. Charger l'extension dans Chrome : `chrome://extensions` → Mode développeur → Charger extension non empaquetée → dossier `extension/`
+2. Ouvrir `http://localhost:3000` dans Chrome
 
 ### Option rapide — Scripts automatisés (Windows)
 
@@ -322,7 +331,7 @@ GhostScrape/
 │   └── vite.config.js        # Dev :3000, proxy /api → :8000
 │
 ├── Dockerfile                 # Image Docker du backend (Playwright + Python 3.12)
-├── docker-compose.yml         # Orchestration Docker (backend + frontend Nginx)
+├── docker-compose.yml         # Orchestration Docker (backend + frontend Nginx + build frontend)
 ├── nginx/
 │   └── default.conf           # Proxy Nginx (API + WebSocket → backend)
 ├── scripts/
