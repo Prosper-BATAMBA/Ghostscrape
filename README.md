@@ -83,24 +83,45 @@ Le scraping web est dominé par deux approches : les solutions **programmatiques
          │                                    │
          └────────── WebSocket ───────────────┘
                           │
-               ┌──────────▼──────────┐
-               │  Backend FastAPI     │
-               │  uvicorn :8000       │
-               │                      │
-               │  /ws/extension       │
-               │  /ws/dashboard       │
-               │  /health             │
-               └─────────────────────┘
+               ┌──────────▼──────────────────────┐
+               │  Backend FastAPI :8000           │
+               │                                  │
+               │  ┌─ WebSocket relay ─────────┐   │
+               │  │  /ws/extension            │   │
+               │  │  /ws/dashboard            │   │
+               │  └───────────────────────────┘   │
+               │                                  │
+               │  ┌─ Scraping statique (httpx) ─┐ │
+               │  │  GET /scrape/html           │ │
+               │  │  GET /scrape/selectors      │ │
+               │  └─────────────────────────────┘ │
+               │                                  │
+               │  ┌─ Scraping JS (Playwright) ──┐ │
+               │  │  POST /scrape/playwright    │ │
+               │  │  (stealth + profile + proxy)│ │
+               │  └─────────────────────────────┘ │
+               │                                  │
+               │  /health                         │
+               └──────────────────────────────────┘
 ```
 
 ### Flux de données
 
+#### Scraping via extension (mode normal)
 1. L'utilisateur navigue sur une page web dans Chrome
 2. Le content script (`content.js`) est injecté automatiquement
 3. Le dashboard React envoie une commande d'extraction (mode + paramètres)
 4. Le backend relaie la commande à l'extension via WebSocket
 5. L'extension exécute l'extraction dans la page et renvoie les résultats
 6. Le dashboard affiche les résultats et permet l'export (CSV/ZIP)
+
+#### Scraping via backend (fallback anti-blocage)
+Quand l'extension est bloquée (CSP, Cloudflare, bot detection) :
+1. Le dashboard envoie une requête HTTP au backend
+2. Le backend choisit le moteur adapté :
+   - **httpx+BS4** pour les pages statiques (rotation UA, retry ×3, proxy)
+   - **Playwright+stealth** pour les pages JS (profil aléatoire, proxy pool, auto-scroll)
+3. Le backend détecte les pages bloquées, réessaie avec backoff et retourne les résultats
 
 ---
 
@@ -116,16 +137,22 @@ Le scraping web est dominé par deux approches : les solutions **programmatiques
 
 ### Backend
 
-| Dépendance | Version |
-|---|---|
-| Python | 3.12 |
-| FastAPI | 0.115.6 |
-| Uvicorn | 0.34.0 |
-| Pydantic | 2.10.4 |
-| httpx | 0.28.1 |
-| orjson | 3.10.12 |
-| beautifulsoup4 | 4.12.3 |
-| lxml | 5.3.0 |
+| Dépendance | Version | Rôle |
+|---|---|---|
+| Python | 3.12 | — |
+| FastAPI | 0.115.6 | Framework API |
+| Uvicorn | 0.34.0 | Serveur ASGI |
+| Pydantic | 2.10.4 | Validation |
+| httpx | 0.28.1 | Client HTTP (scraping statique) |
+| orjson | 3.10.12 | JSON rapide |
+| beautifulsoup4 | 4.12.3 | Parsing HTML (scraping statique) |
+| lxml | 5.3.0 | Parseur XML/HTML |
+| playwright | 1.49.1 | Chromium headless (scraping JS) |
+| playwright-stealth | 1.0.6 | Anti-détection (23 evasions) |
+
+Le backend embarque **2 moteurs de scraping** :
+- **httpx + BeautifulSoup** — pages statiques, rapide, rotation UA, retry ×3, proxy
+- **Playwright + stealth** — pages JS, profil navigateur aléatoire, proxy pool, auto-scroll
 
 ### Dashboard
 
@@ -245,9 +272,15 @@ GhostScrape/
 ├── backend/                  # API Python / FastAPI
 │   ├── app/
 │   │   ├── main.py           # Point d'entrée FastAPI (CORS, /health, WS)
-│   │   └── api/
-│   │       └── endpoint_ws.py # WebSocket relay extension ↔ dashboard
+│   │   ├── api/
+│   │   │   ├── endpoint_ws.py         # WebSocket relay extension ↔ dashboard
+│   │   │   ├── endpoint_scrape.py     # GET /scrape/html, /scrape/selectors (httpx+BS4)
+│   │   │   └── endpoint_playwright.py # POST /scrape/playwright (Playwright+stealth)
+│   │   └── scraper/
+│   │       ├── profile.py     # Profiles navigateur aléatoires (UA, viewport, timezone)
+│   │       └── proxy_pool.py  # Pool de proxies avec health tracking
 │   ├── tests/                # Tests pytest
+│   ├── proxies.txt           # Liste de proxies (exemple)
 │   └── requirements.txt      # Dépendances Python
 │
 ├── extension/                # Extension Chrome Manifest V3
@@ -274,8 +307,7 @@ GhostScrape/
 │
 ├── setup.ps1                 # Script d'installation automatisé (prérequis + dépendances)
 ├── start-dev.ps1             # Lance backend + frontend en parallèle
-├── CAHIER_DES_CHARGES.md     # Cahier des charges complet (7 parties, 14 diagrammes)
-├── CAHIER_DES_CHARGES.pdf    # Version PDF générée
+├── CAHIER_DES_CHARGES.pdf    # Cahier des charges complet (7 parties, 14 diagrammes)
 ├── Makefile                  # Automatisation build/dev
 └── .gitignore
 ```
@@ -311,8 +343,7 @@ Tests manuels HTML disponibles dans `extension/test/` :
 
 ## Documentation
 
-- **[CAHIER_DES_CHARGES.md](CAHIER_DES_CHARGES.md)** — spécification complète en français (7 parties, 28 sections, 14 diagrammes Mermaid)
-- **[CAHIER_DES_CHARGES.pdf](CAHIER_DES_CHARGES.pdf)** — version PDF générée (1,6 Mo) avec tous les diagrammes rendus en SVG
+- **[CAHIER_DES_CHARGES.pdf](CAHIER_DES_CHARGES.pdf)** — spécification complète en français (7 parties, 28 sections, 14 diagrammes)
 
 ---
 
