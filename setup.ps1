@@ -21,10 +21,23 @@ function Step-Result($ok, $msg) {
 }
 
 function Find-Python {
-    $candidates = @(
+    $localPython = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+    $candidates = @()
+
+    if (Test-Path $localPython) {
+        $candidates += @{ cmd = $localPython; arg = "--version"; label = "Python 3.12 (dossier utilisateur)" }
+    }
+
+    $candidates += @{
+        cmd = "py"
+        arg = "-3.12 -c `"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')`""
+        label = "py -3.12"
+    }
+
+    $candidates += @(
+        @{ cmd = "py"       ; arg = "-c `"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')`"" ; label = "py" },
         @{ cmd = "python"   ; arg = "--version" ; label = "python" },
-        @{ cmd = "python3"  ; arg = "--version" ; label = "python3" },
-        @{ cmd = "py"       ; arg = "-c `"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')`"" ; label = "py" }
+        @{ cmd = "python3"  ; arg = "--version" ; label = "python3" }
     )
 
     foreach ($c in $candidates) {
@@ -131,8 +144,9 @@ try {
             winget install Python.Python.3.12 --silent --accept-source-agreements --accept-package-agreements
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "  [OK]  Python 3.12 installe avec succes." -ForegroundColor Green
-                Write-Host "`n  Relancez le setup pour creer le venv avec Python 3.12 :" -ForegroundColor White
+                Write-Host "`n  Le script va s'arreter ici. Relancez-le pour utiliser Python 3.12 :" -ForegroundColor White
                 Write-Host "    .\setup.ps1" -ForegroundColor Yellow
+                exit 0
             } else {
                 Write-Host "  [FAIL] Echec de l'installation via winget." -ForegroundColor Red
                 Write-Host "  Installez Python 3.12 manuellement depuis :" -ForegroundColor Yellow
