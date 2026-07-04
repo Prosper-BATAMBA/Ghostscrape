@@ -76,13 +76,16 @@ Step-Title "Verification des prerequis"
 $pythonInfo = Find-Python
 if ($pythonInfo) {
     $pythonCmd = $pythonInfo.cmd
-    Step-Result $true "Python $($pythonInfo.version) (commande : $pythonCmd)"
+    $majorMinor = $pythonInfo.version
+    Step-Result $true "Python $majorMinor (commande : $pythonCmd)"
+    if ($majorMinor -ge "3.14") {
+        Write-Host "    [WARN]  Python $majorMinor est tres recent. Si l'installation echoue, utilisez Python 3.12 ou 3.13." -ForegroundColor Yellow
+    }
 } else {
     Step-Result $false "Python 3.12+ introuvable (essaye: python, python3, py)"
 }
 
-Check-Command "Node.js" "node" "--version" "18.0.0" "v(\d+\.\d+\.\d+)"
-$nodeOk = $?
+$nodeOk = Check-Command "Node.js" "node" "--version" "18.0.0" "v(\d+\.\d+\.\d+)"
 
 if (-not $Global:allOk) {
     Write-Host "`nDes prerequis sont manquants. Installez-les puis relancez setup.ps1" -ForegroundColor Yellow
@@ -109,13 +112,14 @@ if (-not (Test-Path "$venvPath\Scripts\python.exe")) {
     Step-Result $true "Environnement virtuel existant"
 }
 
-Write-Host "  -> Mise a jour pip..." -ForegroundColor Yellow
-& $pythonCmd -m pip install --upgrade pip setuptools wheel --quiet 2>$null
-Step-Result $? "pip a jour"
-
 Write-Host "  -> Installation des dependances..." -ForegroundColor Yellow
-& $pipPath install -r backend\requirements.txt --quiet
-Step-Result $? "Dependances backend installees"
+try {
+    $output = & $pipPath install -r backend\requirements.txt --quiet 2>&1
+    if ($LASTEXITCODE -ne 0) { throw $output }
+    Step-Result $true "Dependances backend installees"
+} catch {
+    Step-Result $false "Echec dependances backend : $_"
+}
 
 Step-Title "Installation du frontend"
 
