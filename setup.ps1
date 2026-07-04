@@ -123,15 +123,34 @@ if (-not (Test-Path "$venvPath\Scripts\python.exe")) {
     if (-not $?) { Step-Result $false "Echec creation venv" ; exit 1 }
     Step-Result $true "Environnement virtuel cree"
 } else {
-    Step-Result $true "Environnement virtuel existant"
+    $venvPythonVersion = & $venvPath\Scripts\python --version 2>$null
+    $venvMatch = [regex]::Match($venvPythonVersion, "(\d+\.\d+)")
+    if ($venvMatch.Success -and $venvMatch.Groups[1].Value -ne $majorMinor) {
+        Write-Host "  -> Venv existant avec Python $($venvMatch.Groups[1].Value) mais $majorMinor detecte. Recreation..." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force $venvPath
+        if ($pythonCmd -eq "py") {
+            & py -m venv --clear $venvPath
+        } else {
+            & $pythonCmd -m venv --clear $venvPath
+        }
+        if (-not $?) { Step-Result $false "Echec recreation venv" ; exit 1 }
+        Step-Result $true "Environnement virtuel recree avec Python $majorMinor"
+    } else {
+        Step-Result $true "Environnement virtuel existant"
+    }
 }
 
 Write-Host "  -> Installation des dependances..." -ForegroundColor Yellow
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 try {
     $output = & $pipPath install -r backend\requirements.txt --quiet 2>&1
-    if ($LASTEXITCODE -ne 0) { throw $output }
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+    if ($exitCode -ne 0) { throw $output }
     Step-Result $true "Dependances backend installees"
 } catch {
+    $ErrorActionPreference = $prevEAP
     Step-Result $false "Echec dependances backend : $_"
     if ($majorMinor -ge "3.14") {
         Write-Host "`n  Python $majorMinor n'est pas compatible avec GhostScrape." -ForegroundColor Yellow
