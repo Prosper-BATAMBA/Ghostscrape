@@ -131,28 +131,41 @@ graph TB
 ### Docker Setup
 
 ```yaml
-# Minimal docker-compose.yml for full deployment
+# docker-compose.yml (actuel — cf. racine du projet)
 services:
   backend:
-    image: mcr.microsoft.com/playwright:python3.12
+    build: .
     ports:
       - "8000:8000"
     volumes:
-      - ./proxies.txt:/app/proxies.txt
-    environment:
-      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
+      - ./backend/proxies.txt:/app/proxies.txt
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend-builder:
+    image: node:20-alpine
+    profiles:
+      - build
     working_dir: /app
-    command: >
-      sh -c "pip install -r requirements.txt &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run build"
 
   frontend:
     image: nginx:alpine
     ports:
       - "3000:80"
     volumes:
-      - ./frontend/dist:/usr/share/nginx/html
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/dist:/usr/share/nginx/html
+    depends_on:
+      - backend
+    restart: unless-stopped
 ```
 
 ---
@@ -292,7 +305,7 @@ def random_profile():
 | | Vitest | 4.1.9 | Unit testing |
 | | JSZip | 3.10.1 | Client-side ZIP export |
 | **Infrastructure** | Docker | — | Containerization |
-| | mcr.microsoft.com/playwright | python3.12 | Base image with Chromium |
+| | mcr.microsoft.com/playwright/python | v1.49.1 | Base image with Chromium + Python 3.12 |
 
 ---
 
@@ -317,7 +330,6 @@ GhostScrape/
 │   │   ├── __init__.py
 │   │   ├── conftest.py
 │   │   └── test_websocket.py
-│   ├── Dockerfile                 # (optional) Docker image
 │   ├── proxies.txt                # Example proxy list (user-editable)
 │   ├── requirements.txt           # Python dependencies
 │   └── .env.example               # Environment template
@@ -371,13 +383,19 @@ GhostScrape/
 │   ├── index.html
 │   └── package.json
 │
+├── .dockerignore                  # Build context Docker (excludes node_modules, venv, etc.)
+├── Dockerfile                     # Image Docker (mcr.microsoft.com/playwright/python:v1.49.1)
+├── docker-compose.yml             # Orchestration Docker (backend + frontend Nginx + frontend-builder)
+├── nginx/
+│   └── default.conf               # Proxy Nginx (API + WebSocket → backend, DNS resolver)
 ├── scripts/
 │   └── generate-pdf.js            # PDF generation via Puppeteer
 │
-├── setup.ps1                      # Automated install script (Win)
-├── start-dev.ps1                  # Dev server launcher (Win)
-├── Makefile                       # Build/dev automation (cross-platform)
-├── docker-compose.yml             # (optional) Docker orchestration
+├── setup.ps1                      # Automated install script (Windows PowerShell)
+├── setup.sh                       # Automated install script (Unix bash)
+├── start-dev.ps1                  # Dev server launcher (Windows)
+├── run.sh                         # Dev server launcher (Unix)
+├── Makefile                       # Build/dev automation (cross-platform, Linux/macOS + Windows)
 ├── ARCHITECTURE.md                # This file
 ├── CAHIER_DES_CHARGES.pdf         # Full specification (French, 7 parts, 14 diagrams)
 ├── README.md                      # Project overview & quick start
@@ -398,6 +416,8 @@ GhostScrape/
 | **Offscreen document** | MV3 limits service worker lifetime. The offscreen document owns the WebSocket connection and keeps it alive. |
 | **Random browser profiles** | Sites fingerprint by UA + viewport + timezone + locale. Randomizing all 4 prevents correlation across sessions. |
 | **Compressed session history** | `localStorage` has a 5–10 MB quota. Stripping `html`, `attrs`, large strings, and long arrays prevents data loss. |
+| **Docker as primary deployment** | Docker encapsulates Python 3.12 + Node.js + Chromium + Playwright. Single command `docker compose up -d` works on Windows, macOS, and Linux with zero local dependencies. |
+| **Cross-platform setup scripts** | `setup.ps1` (PowerShell) + `setup.sh` (bash) + `Makefile` provide consistent installation on all 3 OS without Docker. All paths use Unix separators; `Makefile` auto-detects Windows via `$(OS)` variable. |
 
 ---
 
