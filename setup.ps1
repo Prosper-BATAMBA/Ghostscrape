@@ -89,8 +89,9 @@ $nodeOk = Check-Command "Node.js" "node" "--version" "18.0.0" "v(\d+\.\d+\.\d+)"
 
 if (-not $Global:allOk) {
     Write-Host "`nDes prerequis sont manquants. Installez-les puis relancez setup.ps1" -ForegroundColor Yellow
-    Write-Host "    Python 3.12 : https://www.python.org/downloads/"
-    Write-Host "    Node.js 18+ : https://nodejs.org/"
+    Write-Host "    Python 3.12 : winget install Python.Python.3.12"
+    Write-Host "                  ou https://www.python.org/downloads/release/python-3129/"
+    Write-Host "    Node.js 18+  : https://nodejs.org/"
     exit 1
 }
 
@@ -119,6 +120,29 @@ try {
     Step-Result $true "Dependances backend installees"
 } catch {
     Step-Result $false "Echec dependances backend : $_"
+    if ($majorMinor -ge "3.14") {
+        Write-Host "`n  Python $majorMinor n'est pas compatible avec GhostScrape." -ForegroundColor Yellow
+        Write-Host "  Les packages compiles (lxml, orjson) n'ont pas de wheel pour cette version." -ForegroundColor Yellow
+        Write-Host "`n  GhostScrape necessite Python 3.12." -ForegroundColor White
+        Write-Host "`n  Voulez-vous installer Python 3.12 via winget ? (O/N)" -ForegroundColor Yellow
+        $reponse = Read-Host
+        if ($reponse -eq "O") {
+            Write-Host "  -> Installation de Python 3.12..." -ForegroundColor Yellow
+            winget install Python.Python.3.12 --silent --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  [OK]  Python 3.12 installe avec succes." -ForegroundColor Green
+                Write-Host "`n  Relancez le setup pour creer le venv avec Python 3.12 :" -ForegroundColor White
+                Write-Host "    .\setup.ps1" -ForegroundColor Yellow
+            } else {
+                Write-Host "  [FAIL] Echec de l'installation via winget." -ForegroundColor Red
+                Write-Host "  Installez Python 3.12 manuellement depuis :" -ForegroundColor Yellow
+                Write-Host "    https://www.python.org/downloads/release/python-3129/" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "`n  Installez Python 3.12 manuellement puis relancez le setup." -ForegroundColor Yellow
+            Write-Host "    https://www.python.org/downloads/release/python-3129/" -ForegroundColor Yellow
+        }
+    }
 }
 
 Step-Title "Installation du frontend"
