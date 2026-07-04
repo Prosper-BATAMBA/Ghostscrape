@@ -23,18 +23,23 @@ export default function Sidebar({ engine, isConnected, send, onCategorySelect })
       return
     }
     engine.setActiveMode(modeId)
+    engine.resetExtraction()
     send({ type: 'ACTIVATE_MODE', modeId, capabilities, options: engine.extractionOptions })
   }
 
   function handleRelaunch() {
     if (activeMode) {
-      engine.setModeData(null)
-      send({ type: 'TRIGGER_EXTRACTION', modeId: activeMode, options: engine.extractionOptions })
+      engine.triggerExtraction(send, { modeId: activeMode, options: engine.extractionOptions })
     }
+  }
+
+  function handleCancel() {
+    engine.cancelExtraction(send)
   }
 
   var hasData = extractionData && extractionData.modeId === activeMode
   var ActivePanel = activeMode ? MODE_PANELS[activeMode] : null
+  var isExtracting = engine.extractionState === 'extracting' || engine.extractionState === 'cancelling'
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -45,7 +50,18 @@ export default function Sidebar({ engine, isConnected, send, onCategorySelect })
             <div className="flex items-center gap-2">
               <span className="text-xs">{mode?.icon || '👻'}</span>
               <span className="text-xs font-semibold text-surface-200">{mode?.name || activeMode}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/70"></span>
+              {isExtracting && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/70 animate-pulse"></span>
+              )}
+              {engine.extractionState === 'done' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/70"></span>
+              )}
+              {engine.extractionState === 'error' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400/70"></span>
+              )}
+              {engine.extractionState === 'cancelled' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/70"></span>
+              )}
             </div>
             <button
               onClick={function () {
@@ -95,6 +111,8 @@ export default function Sidebar({ engine, isConnected, send, onCategorySelect })
           <ActivePanel
             data={hasData ? extractionData.data : null}
             onRelaunch={handleRelaunch}
+            onCancel={handleCancel}
+            onTriggerExtraction={function (msg) { engine.triggerExtraction(send, msg) }}
             send={send}
             imageBlobs={engine.imageBlobs}
             htmlStructure={engine.htmlStructure}
@@ -103,6 +121,7 @@ export default function Sidebar({ engine, isConnected, send, onCategorySelect })
             onExtractionOptionsChange={engine.setExtractionOptions}
             testResults={engine.testResults}
             onTestResultsChange={engine.setTestResults}
+            extractionState={engine.extractionState}
           />
         </div>
       )}

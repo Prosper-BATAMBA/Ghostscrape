@@ -11,11 +11,29 @@ function loadSessions() {
   return []
 }
 
+function saveSessions(sessions) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+    return true
+  } catch (e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      return false
+    }
+    return true
+  }
+}
+
 export default function useSessionHistory() {
   var [sessions, setSessions] = useState(loadSessions)
 
   useEffect(function () {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)) } catch (e) { /* quota exceeded */ }
+    var current = sessions
+    while (!saveSessions(current) && current.length > 0) {
+      current = current.slice(1)
+    }
+    if (current !== sessions) {
+      setSessions(current)
+    }
   }, [sessions])
 
   function addSession(modeId, data) {
@@ -26,7 +44,7 @@ export default function useSessionHistory() {
         url: data.url || '',
         title: data.title || '',
         timestamp: Date.now(),
-        data: stripImages(data),
+        data: compressData(data),
       }])
       return next.slice(-MAX_SESSIONS)
     })
@@ -47,26 +65,46 @@ export default function useSessionHistory() {
   return { sessions, addSession, deleteSession, clearHistory, loadSession }
 }
 
-var IMAGE_ALLOWED_KEYS = ['src', 'alt', 'width', 'height', 'type', 'tag', 'html', 'attrs']
-
-function stripImages(obj) {
+function compressData(obj, depth) {
+  depth = depth || 0
+  if (depth > 10) return undefined
   if (!obj || typeof obj !== 'object') return obj
-  if (Array.isArray(obj)) return obj.map(stripImages)
+  if (Array.isArray(obj)) {
+    var arr = []
+    for (var i = 0; i < obj.length; i++) {
+      if (i >= 200) break
+      var item = compressData(obj[i], depth + 1)
+      if (item !== undefined) arr.push(item)
+    }
+    return arr
+  }
   var clone = {}
   for (var key in obj) {
+    if (key === 'imageBlobs') continue
     if (key === 'images' && Array.isArray(obj[key])) {
-      clone[key] = obj[key].map(function (img) {
-        var copy = {}
-        IMAGE_ALLOWED_KEYS.forEach(function (k) {
-          if (img[k] !== undefined) copy[k] = img[k]
-        })
-        return copy
+      clone[key] = obj[key].slice(0, 50).map(function (img) {
+        return { src: img.src, alt: img.alt || '', width: img.width, height: img.height, type: img.type }
       })
-    } else if (key === 'imageBlobs') {
       continue
-    } else {
-      clone[key] = stripImages(obj[key])
     }
+    if (key === 'html') continue
+    if (key === 'attrs' && typeof obj[key] === 'object') {
+      var attrs = {}
+      var count = 0
+      for (var k in obj[key]) {
+        if (count >= 10) break
+        attrs[k] = String(obj[key][k]).slice(0, 100)
+        count++
+      }
+      clone[key] = attrs
+      continue
+    }
+    if (typeof obj[key] === 'string' && obj[key].length > 500) {
+      clone[key] = obj[key].slice(0, 500)
+      continue
+    }
+    clone[key] = compressData(obj[key], depth + 1)
+    if (clone[key] === undefined) delete clone[key]
   }
   return clone
 }

@@ -13,7 +13,7 @@ var DATA_TYPES = [
   { id: 'structured', label: 'Données structurées' },
 ]
 
-export default function DataTypePanel({ data, send, onCategorySelect, extractionOptions, onExtractionOptionsChange, imageBlobs }) {
+export default function DataTypePanel({ data, send, onCategorySelect, extractionOptions, onExtractionOptionsChange, imageBlobs, onCancel, extractionState, onTriggerExtraction }) {
   var [checked, setChecked] = useState({})
   var [hasExtracted, setHasExtracted] = useState(false)
   var [showCsvMenu, setShowCsvMenu] = useState(false)
@@ -56,7 +56,11 @@ export default function DataTypePanel({ data, send, onCategorySelect, extraction
     var types = Object.keys(checked)
     if (types.length === 0) return
     setHasExtracted(false)
-    send({ type: 'TRIGGER_EXTRACTION', modeId: 'data-types', types: types, options: extractionOptions })
+    if (onTriggerExtraction) {
+      onTriggerExtraction({ modeId: 'data-types', types: types, options: extractionOptions })
+    } else {
+      send({ type: 'TRIGGER_EXTRACTION', modeId: 'data-types', types: types, options: extractionOptions })
+    }
   }
 
   function handleDownload() {
@@ -103,6 +107,66 @@ export default function DataTypePanel({ data, send, onCategorySelect, extraction
     return d[typeId].length || 0
   }
 
+  if (extractionState === 'extracting' && !hasExtracted) {
+    return (
+      <div className="flex flex-col flex-1">
+        <div className="px-4 py-3 border-b border-surface-700/30">
+          <h3 className="text-xs font-semibold text-surface-200 uppercase tracking-wider">Extraction ciblée</h3>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 text-center">
+          <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center mb-3">
+            <svg className="w-5 h-5 text-accent animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+          <p className="text-xs text-surface-400">Extraction en cours...</p>
+          <button onClick={onCancel}
+            className="mt-4 text-[10px] px-3 py-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (extractionState === 'cancelled' && !hasExtracted) {
+    return (
+      <div className="flex flex-col flex-1">
+        <div className="px-4 py-3 border-b border-surface-700/30">
+          <h3 className="text-xs font-semibold text-surface-200 uppercase tracking-wider">Extraction ciblée</h3>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 text-center">
+          <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mb-3">
+            <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <p className="text-xs text-surface-400">Extraction annulée</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (extractionState === 'error' && !hasExtracted) {
+    return (
+      <div className="flex flex-col flex-1">
+        <div className="px-4 py-3 border-b border-surface-700/30">
+          <h3 className="text-xs font-semibold text-surface-200 uppercase tracking-wider">Extraction ciblée</h3>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 text-center">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center mb-3">
+            <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-xs text-surface-400">Erreur d'extraction</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!hasExtracted) {
     return (
       <div className="flex flex-col flex-1">
@@ -134,7 +198,7 @@ export default function DataTypePanel({ data, send, onCategorySelect, extraction
             disabled={checkedCount === 0}
             className="w-full text-xs px-3 py-2 rounded bg-accent hover:bg-accent-600 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {checkedCount === 0 ? 'S\u00E9lectionnez des types' : 'Lancer l\'extraction (' + checkedCount + ')'}
+            {checkedCount === 0 ? 'Sélectionnez des types' : 'Lancer l\'extraction (' + checkedCount + ')'}
           </button>
         </div>
       </div>
@@ -170,11 +234,7 @@ export default function DataTypePanel({ data, send, onCategorySelect, extraction
               {showCsvMenu && (
                 <div className="absolute bottom-full mb-1 left-0 bg-surface-800 border border-surface-700/50 rounded-lg overflow-hidden shadow-lg z-10 min-w-[120px]">
                   {data.images && data.images.length > 0 && (
-                    <button onClick={function () {
-                      setShowCsvMenu(false)
-                      var items = data.images.map(function (img) { return { src: img.src, alt: img.alt, width: img.width, height: img.height } })
-                      downloadCsvByType(items, 'Images')
-                    }}
+                    <button onClick={function () { setShowCsvMenu(false); downloadCsvByType(data.images, 'Images') }}
                       className="w-full text-left text-[10px] px-3 py-1.5 text-surface-300 hover:bg-surface-700/60 transition-colors whitespace-nowrap">
                       Images
                     </button>
@@ -189,7 +249,10 @@ export default function DataTypePanel({ data, send, onCategorySelect, extraction
               )}
             </div>
             <button
-              onClick={function () { setHasExtracted(false) }}
+              onClick={function () {
+                setHasExtracted(false)
+                send({ type: 'SET_OPTIONS', options: extractionOptions })
+              }}
               className="text-[10px] px-2 py-1 rounded bg-accent/10 hover:bg-accent/20 text-accent-300 transition-colors"
             >
               Nouvelle extraction

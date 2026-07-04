@@ -116,6 +116,155 @@
     },
   }
 
+  // ---- PageDetector (détection pages bloquées/erreur) ----
+  GS.PageDetector = {
+    _blockedPatterns: [
+      /access.?denied/i, /403 forbidden/i, /404 not found/i,
+      /too many requests/i, /rate.?limited/i, /blocked/i,
+      /captcha/i, /cf.?challenge/i, /ddos.?protection/i,
+      /just a moment/i, /checking your browser/i,
+      /your request has been blocked/i, /security.?check/i,
+      /attention required/i, /cloudflare/i,
+    ],
+
+    detect: function () {
+      var body = document.body ? document.body.innerText : ''
+      var html = document.documentElement ? document.documentElement.innerHTML : ''
+      var title = document.title
+      var status = this._getHttpStatus()
+      var checks = []
+
+      if (status && status >= 400) {
+        checks.push({ type: 'http_status', detail: String(status), severity: 'high' })
+      }
+
+      this._blockedPatterns.forEach(function (pattern) {
+        if (pattern.test(body) || pattern.test(html) || pattern.test(title)) {
+          checks.push({
+            type: 'content_pattern',
+            detail: pattern.source,
+            severity: pattern.source.toLowerCase().includes('403') || pattern.source.toLowerCase().includes('access') ? 'high' : 'medium',
+          })
+        }
+      })
+
+      if (body.trim().length < 50 && !this._hasUsefulContent()) {
+        checks.push({ type: 'empty_page', detail: 'Page body has fewer than 50 chars of text', severity: 'medium' })
+      }
+
+      return {
+        blocked: checks.some(function (c) { return c.severity === 'high' }),
+        suspicious: checks.some(function (c) { return c.severity === 'medium' }),
+        checks: checks,
+      }
+    },
+
+    _getHttpStatus: function () {
+      try {
+        if (performance && performance.getEntriesByType) {
+          var entries = performance.getEntriesByType('navigation')
+          if (entries.length > 0) return entries[0].responseStatus
+        }
+      } catch (e) {}
+      return null
+    },
+
+    _hasUsefulContent: function () {
+      var selectors = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'article', 'main', 'section', 'table', 'img', 'a']
+      for (var i = 0; i < selectors.length; i++) {
+        if (document.querySelector(selectors[i])) return true
+      }
+      return false
+    },
+  }
+
+  // ---- RetryManager (réessai avec backoff progressif) ----
+  GS.RetryManager = {
+    defaults: { maxRetries: 3, baseDelay: 500, maxDelay: 5000, factor: 2 },
+
+    retry: function (fn, options) {
+      var opts = {}
+      for (var k in this.defaults) opts[k] = this.defaults[k]
+      if (options) { for (var k in options) opts[k] = options[k] }
+
+      return new Promise(function (resolve, reject) {
+        var attempt = 0
+        function run() {
+          attempt++
+          var result
+          try { result = fn() } catch (e) { return reject(e) }
+
+          if (result && typeof result.then === 'function') {
+            result.then(function (val) {
+              if (opts.validate && !opts.validate(val) && attempt <= opts.maxRetries) {
+                var delay = Math.min(opts.baseDelay * Math.pow(opts.factor, attempt - 1), opts.maxDelay)
+                console.log('[GS] Retry attempt ' + attempt + '/' + opts.maxRetries + ' in ' + delay + 'ms')
+                setTimeout(run, delay)
+              } else {
+                resolve(val)
+              }
+            }).catch(function (err) {
+              if (attempt <= opts.maxRetries) {
+                var delay = Math.min(opts.baseDelay * Math.pow(opts.factor, attempt - 1), opts.maxDelay)
+                console.log('[GS] Retry after error (attempt ' + attempt + '/' + opts.maxRetries + ') in ' + delay + 'ms:', err.message)
+                setTimeout(run, delay)
+              } else {
+                reject(err)
+              }
+            })
+          } else {
+            if (opts.validate && !opts.validate(result) && attempt <= opts.maxRetries) {
+              var delay = Math.min(opts.baseDelay * Math.pow(opts.factor, attempt - 1), opts.maxDelay)
+              console.log('[GS] Retry attempt ' + attempt + '/' + opts.maxRetries + ' in ' + delay + 'ms')
+              setTimeout(run, delay)
+            } else {
+              resolve(result)
+            }
+          }
+        }
+        run()
+      })
+    },
+  }
+
+  // ---- Timeout wrapper ----
+  GS.Timeout = function (promise, ms, label) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        reject(new Error((label || 'Operation') + ' timed out after ' + ms + 'ms'))
+      }, ms)
+      promise.then(function (v) { clearTimeout(timer); resolve(v) })
+             .catch(function (e) { clearTimeout(timer); reject(e) })
+    })
+  }
+
+  // ---- waitForSelector (MutationObserver) ----
+  GS.waitForSelector = function (selector, timeout) {
+    timeout = timeout || 10000
+    return new Promise(function (resolve, reject) {
+      var found = document.querySelectorAll(selector)
+      if (found.length > 0) return resolve(found)
+
+      var timer = setTimeout(function () {
+        observer.disconnect()
+        reject(new Error('waitForSelector timed out: ' + selector))
+      }, timeout)
+
+      var observer = new MutationObserver(function () {
+        var els = document.querySelectorAll(selector)
+        if (els.length > 0) {
+          clearTimeout(timer)
+          observer.disconnect()
+          resolve(els)
+        }
+      })
+
+      observer.observe(document.documentElement, {
+        childList: true, subtree: true, attributes: false,
+      })
+    })
+  }
+
   // ---- Extraction queue (sérialise les extractions pour éviter les conflits DOM) ----
   var extractionQueue = Promise.resolve()
 
@@ -467,55 +616,203 @@
     scroll()
   }
 
+  // ---- Cancellation support ----
+  var _extractionCancelled = false
+  var _cancelToken = 0
+
+  function _checkCancelled() {
+    if (_extractionCancelled) {
+      var err = new Error('Extraction cancelled by user')
+      err.name = 'CancelledError'
+      throw err
+    }
+  }
+
+  function _resetCancellation() {
+    _extractionCancelled = false
+    _cancelToken++
+  }
+
+  // ---- Default extraction options ----
+  var defaultExtractionOptions = {
+    timeout: 30000,
+    retryEnabled: true,
+    retryMax: 3,
+    retryBaseDelay: 500,
+    checkBlocked: true,
+  }
+
   // ---- Message Handlers ----
   GS.MessagingService.onMessage(function (msg) {
     console.log('[GS] message recu:', msg.type)
 
+    if (msg.type === 'SET_OPTIONS') {
+      if (msg.options) {
+        for (var k in msg.options) defaultExtractionOptions[k] = msg.options[k]
+      }
+      return
+    }
+
+    if (msg.type === 'CANCEL_EXTRACTION') {
+      _extractionCancelled = true
+      console.log('[GS] Extraction cancelled by user')
+      return
+    }
+
+    if (msg.type === 'DETECT_BLOCKED') {
+      var detection = GS.PageDetector.detect()
+      GS.MessagingService.send({
+        type: 'BLOCKED_DETECTION_RESULT',
+        blocked: detection.blocked,
+        suspicious: detection.suspicious,
+        checks: detection.checks,
+      })
+      return
+    }
+
+    if (msg.type === 'WAIT_FOR_SELECTOR') {
+      var sel = msg.selector
+      var waitTimeout = msg.timeout || 10000
+      GS.waitForSelector(sel, waitTimeout).then(function (elements) {
+        GS.MessagingService.send({
+          type: 'WAIT_FOR_SELECTOR_RESULT',
+          selector: sel,
+          count: elements.length,
+          found: true,
+        })
+      }).catch(function (err) {
+        GS.MessagingService.send({
+          type: 'WAIT_FOR_SELECTOR_RESULT',
+          selector: sel,
+          count: 0,
+          found: false,
+          error: err.message,
+        })
+      })
+      return
+    }
+
     if (msg.type === 'TRIGGER_EXTRACTION') {
+      _resetCancellation()
+      var currentToken = _cancelToken
+
       extractionQueue = extractionQueue.then(function () {
         return (async function () {
           try {
             var options = msg.options || {}
-            await waitAndScroll(options.delay || 0, options.scroll || false)
+            var timeout = options.timeout || defaultExtractionOptions.timeout
 
-            if (msg.modeId === 'full-page') {
-              var data = extractFullPage()
-              GS.MessagingService.send({
-                type: 'EXTRACTION_RESULT',
-                modeId: 'full-page',
-                data: data,
-              })
-              console.log('[GS] full-page extraction sent:', Object.keys(data))
-            }
+            var extractionPromise = (async function () {
+              _checkCancelled()
 
-            if (msg.modeId === 'data-types') {
-              var types = msg.types || []
-              var data = extractDataTypes(types)
-              GS.MessagingService.send({
-                type: 'EXTRACTION_RESULT',
-                modeId: 'data-types',
-                data: data,
-              })
-              console.log('[GS] data-types extraction sent:', types)
-            }
+              if (defaultExtractionOptions.checkBlocked !== false && options.checkBlocked !== false) {
+                var detection = GS.PageDetector.detect()
+                if (detection.blocked) {
+                  GS.MessagingService.send({
+                    type: 'EXTRACTION_WARNING',
+                    modeId: msg.modeId,
+                    warning: 'blocked_page',
+                    detail: 'Page appears to be blocked or restricted',
+                    checks: detection.checks,
+                  })
+                }
+              }
 
-            if (msg.modeId === 'css-selector') {
-              var selectors = msg.selectors || []
-              var data = extractCssSelectors(selectors)
-              GS.MessagingService.send({
-                type: 'EXTRACTION_RESULT',
-                modeId: 'css-selector',
-                data: data,
-              })
-              console.log('[GS] css-selector extraction sent:', selectors.length, 'selectors')
-            }
+              _checkCancelled()
+
+              await waitAndScroll(options.delay || 0, options.scroll || false)
+
+              _checkCancelled()
+
+              if (msg.modeId === 'full-page') {
+                var data = extractFullPage()
+                _checkCancelled()
+                GS.MessagingService.send({
+                  type: 'EXTRACTION_RESULT',
+                  modeId: 'full-page',
+                  data: data,
+                })
+                console.log('[GS] full-page extraction sent:', Object.keys(data))
+              }
+
+              if (msg.modeId === 'data-types') {
+                var types = msg.types || []
+                _checkCancelled()
+                var doExtract = function () { _checkCancelled(); return extractDataTypes(types) }
+                var validateFn = function (d) {
+                  for (var i = 0; i < types.length; i++) {
+                    if (d[types[i]] && (Array.isArray(d[types[i]]) ? d[types[i]].length > 0 : Object.keys(d[types[i]]).length > 0)) return true
+                  }
+                  return false
+                }
+                var data
+                if (defaultExtractionOptions.retryEnabled && options.retry !== false) {
+                  data = await GS.Timeout(
+                    GS.RetryManager.retry(doExtract, {
+                      maxRetries: options.retryMax || defaultExtractionOptions.retryMax,
+                      baseDelay: options.retryBaseDelay || defaultExtractionOptions.retryBaseDelay,
+                      validate: validateFn,
+                    }),
+                    timeout, 'data-types extraction'
+                  )
+                } else {
+                  data = await GS.Timeout(Promise.resolve(doExtract()), timeout, 'data-types extraction')
+                }
+                _checkCancelled()
+                GS.MessagingService.send({
+                  type: 'EXTRACTION_RESULT',
+                  modeId: 'data-types',
+                  data: data,
+                })
+                console.log('[GS] data-types extraction sent:', types)
+              }
+
+              if (msg.modeId === 'css-selector') {
+                var selectors = msg.selectors || []
+                _checkCancelled()
+                var doExtract = function () { _checkCancelled(); return extractCssSelectors(selectors) }
+                var validateFn = function (d) {
+                  return d.selectors.some(function (s) { return s.count > 0 })
+                }
+                var data
+                if (defaultExtractionOptions.retryEnabled && options.retry !== false) {
+                  data = await GS.Timeout(
+                    GS.RetryManager.retry(doExtract, {
+                      maxRetries: options.retryMax || defaultExtractionOptions.retryMax,
+                      baseDelay: options.retryBaseDelay || defaultExtractionOptions.retryBaseDelay,
+                      validate: validateFn,
+                    }),
+                    timeout, 'css-selector extraction'
+                  )
+                } else {
+                  data = await GS.Timeout(Promise.resolve(doExtract()), timeout, 'css-selector extraction')
+                }
+                _checkCancelled()
+                GS.MessagingService.send({
+                  type: 'EXTRACTION_RESULT',
+                  modeId: 'css-selector',
+                  data: data,
+                })
+                console.log('[GS] css-selector extraction sent:', selectors.length, 'selectors')
+              }
+            })()
+
+            return GS.Timeout(extractionPromise, timeout, msg.modeId + ' extraction')
           } catch (e) {
-            console.error('[GS] Extraction failed:', e)
-            GS.MessagingService.send({
-              type: 'EXTRACTION_ERROR',
-              modeId: msg.modeId,
-              error: e.message || 'Unknown error',
-            })
+            if (e.name === 'CancelledError') {
+              console.log('[GS] Extraction cancelled')
+              GS.MessagingService.send({
+                type: 'EXTRACTION_CANCELLED',
+                modeId: msg.modeId,
+              })
+            } else {
+              console.error('[GS] Extraction failed:', e)
+              GS.MessagingService.send({
+                type: 'EXTRACTION_ERROR',
+                modeId: msg.modeId,
+                error: e.message || 'Unknown error',
+              })
+            }
           }
         })()
       })

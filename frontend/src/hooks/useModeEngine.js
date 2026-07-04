@@ -7,6 +7,7 @@ export default function useModeEngine() {
   var [htmlStructure, setHtmlStructure] = useState(null)
   var [extractionOptions, setExtractionOptions] = useState({ delay: 0, scroll: false })
   var [testResults, setTestResults] = useState({})
+  var [extractionState, setExtractionState] = useState('idle')
 
   var handleMessage = function (msg) {
     switch (msg.type) {
@@ -16,10 +17,22 @@ export default function useModeEngine() {
       case 'DEACTIVATE_MODE':
         setActiveMode(null)
         break
+      case 'TRIGGER_EXTRACTION':
+        setExtractionState('extracting')
+        break
       case 'EXTRACTION_RESULT':
         setModeData({ type: msg.type, modeId: msg.modeId, data: msg.data })
+        setExtractionState('done')
         setImageBlobs(null)
         setHtmlStructure(null)
+        break
+      case 'EXTRACTION_ERROR':
+        setExtractionState('error')
+        setModeData({ type: msg.type, modeId: msg.modeId, error: msg.error })
+        break
+      case 'EXTRACTION_CANCELLED':
+        setExtractionState('cancelled')
+        setModeData({ type: msg.type, modeId: msg.modeId })
         break
       case 'IMAGES_BASE64':
         setImageBlobs(msg.images)
@@ -35,6 +48,22 @@ export default function useModeEngine() {
     }
   }
 
+  function triggerExtraction(send, msg) {
+    setExtractionState('extracting')
+    setModeData({})
+    send({ type: 'TRIGGER_EXTRACTION', ...msg })
+  }
+
+  function cancelExtraction(send) {
+    setExtractionState('cancelling')
+    send({ type: 'CANCEL_EXTRACTION' })
+  }
+
+  function resetExtraction() {
+    setExtractionState('idle')
+    setModeData({})
+  }
+
   return {
     activeMode, setActiveMode,
     modeData, setModeData,
@@ -42,6 +71,10 @@ export default function useModeEngine() {
     htmlStructure,
     extractionOptions, setExtractionOptions,
     testResults, setTestResults,
+    extractionState,
     handleMessage,
+    triggerExtraction,
+    cancelExtraction,
+    resetExtraction,
   }
 }
