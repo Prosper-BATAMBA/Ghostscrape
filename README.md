@@ -185,8 +185,8 @@ Le backend embarque **2 moteurs de scraping** :
 
 **Sans Node.js installé :**
 ```bash
-# 1. Builder le frontend (une seule fois)
-docker compose run frontend-builder
+# 1. Builder le frontend (une seule fois, --rm nettoie le conteneur après)
+docker compose run --rm frontend-builder
 
 # 2. Lancer tous les services
 docker compose up -d
