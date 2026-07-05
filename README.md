@@ -1,6 +1,6 @@
 # GhostScrape — Scraping web visuel, local & gratuit
 
-**GhostScrape** est une plateforme de web scraping 100% locale qui permet d'extraire le contenu d'une page web (titres, images, liens, tableaux, métadonnées, sélecteurs CSS personnalisés) en temps réel, sans écrire une ligne de code.
+**GhostScrape** est une plateforme de web scraping qui permet d'extraire le contenu d'une page web (titres, images, liens, tableaux, métadonnées, sélecteurs CSS personnalisés) en temps réel, sans écrire une ligne de code.
 
 | Composant | Technologie | Version |
 |---|---|---|
@@ -8,23 +8,29 @@
 | Backend | Python / FastAPI | 0.3.0 |
 | Dashboard | React 18 + Vite 5 + Tailwind 3 | 0.1.0 |
 
+**Services hébergés :**
+- **Dashboard** : [https://ghostscrape-front.netlify.app](https://ghostscrape-front.netlify.app)
+- **Backend API** : [https://ghostscrape.onrender.com](https://ghostscrape.onrender.com)
+
 ---
 
 ## Table des matières
 
 - [Aperçu](#aperçu)
+- [Démarrage rapide (30 secondes)](#démarrage-rapide-30-secondes)
+- [Installation de l'extension](#installation-de-lextension)
 - [Fonctionnalités](#fonctionnalités)
 - [Architecture](#architecture)
 - [Stack technique](#stack-technique)
-- [Prérequis](#prérequis)
-- [Installation](#installation)
-  - [1. Backend (Python/FastAPI)](#1-backend-pythonfastapi)
-  - [2. Frontend (React/Vite)](#2-frontend-reactvite)
-  - [3. Extension Chrome](#3-extension-chrome)
-  - [4. Makefile (optionnel)](#4-makefile-optionnel)
 - [Utilisation](#utilisation)
+- [Développement local](#développement-local)
+  - [Docker](#docker)
+  - [Scripts automatisés](#scripts-automatisés)
+  - [Manuel](#manuel)
+  - [Makefile](#makefile)
 - [Structure du projet](#structure-du-projet)
 - [Tests](#tests)
+- [Dépannage](#dépannage)
 - [Documentation](#documentation)
 - [Licence](#licence)
 
@@ -37,16 +43,56 @@ Le scraping web est dominé par deux approches : les solutions **programmatiques
 **GhostScrape résout ce problème :**
 
 - Gratuit et open source
-- 100% local — aucune donnée ne quitte votre machine
-- Aucune compétence technique requise — interface visuelle
+- Aucune installation serveur — backend et frontend sont déjà hébergés
+- Seule l'extension Chrome est à installer localement
 - Extraction en temps réel via WebSocket
 - Export CSV et ZIP en un clic
 
 ---
 
+## Démarrage rapide (30 secondes)
+
+```bash
+# 1. Ouvrir le dashboard
+https://ghostscrape-front.netlify.app
+
+# 2. Installer l'extension (une seule fois)
+#    Voir les instructions ci-dessous
+
+# 3. Naviguer sur une page web → cliquer Extract
+```
+
+➡️ **Aucune installation serveur.** Rien à configurer. Juste Chrome + l'extension.
+
+---
+
+## Installation de l'extension
+
+La seule chose à installer manuellement. L'extension permet de scraper le DOM réel de la page que vous visitez.
+
+### Windows / macOS / Linux
+
+1. **Télécharger le dossier `extension/`** depuis [GitHub](https://github.com/Prosper-BATAMBA/Ghostscrape)
+   - Cloner le repo : `git clone https://github.com/Prosper-BATAMBA/Ghostscrape.git`
+   - Ou télécharger le ZIP depuis GitHub → décompresser
+
+2. **Ouvrir Chrome** et aller sur `chrome://extensions`
+
+3. **Activer le Mode développeur** (coin supérieur droit)
+
+4. **Cliquer sur « Charger l'extension non empaquetée »**
+
+5. **Sélectionner le dossier `extension/`** du projet
+
+6. ✅ **L'icône GhostScrape apparaît** dans la barre d'outils — prêt !
+
+> **Astuce :** Pour les proches, vous pouvez zipper le dossier `extension/` et le leur envoyer. Ils suivent les mêmes étapes.
+
+---
+
 ## Fonctionnalités
 
-### 🔍 4 modes d'extraction
+### 4 modes d'extraction
 
 | Mode | Description |
 |---|---|
@@ -55,13 +101,13 @@ Le scraping web est dominé par deux approches : les solutions **programmatiques
 | **CssSelector** | Sélecteurs CSS personnalisés saisis librement |
 | **HistoryView** | Historique des sessions d'extraction avec reprise possible |
 
-### ⚡ Temps réel
+### Temps réel
 
 - L'extension injecte un content script au `document_idle`
 - Les données sont relayées via WebSocket (backend FastAPI)
 - Le dashboard React met à jour l'interface instantanément
 
-### 📦 Export
+### Export
 
 - **CSV** — données tabulaires (liens, tableaux, sélecteurs CSS)
 - **ZIP** — lots d'images avec métadonnées JSON, pages complètes HTML
@@ -72,37 +118,39 @@ Le scraping web est dominé par deux approches : les solutions **programmatiques
 ## Architecture
 
 ```
-┌──────────────────────────┐       ┌──────────────────────────┐
-│   Extension Chrome MV3   │       │   Dashboard React        │
-│                          │       │   Vite :3000             │
-│  content.js ──port──►    │       │                          │
-│  background.js           │       │  WebSocket ◄────────────┐│
-│       │                  │       │  JSZip / export         ││
-│  offscreen.js (WS) ──────├───────┼────────────────────────┘│
-└──────────────────────────┘       └──────────────────────────┘
+┌──────────────────────────┐       ┌──────────────────────────────────┐
+│   Extension Chrome MV3   │       │   Dashboard (Netlify)            │
+│   (locale)               │       │   https://...netlify.app         │
+│                          │       │                                  │
+│  content.js ──port──►    │       │  WebSocket ◄────────────────────┐│
+│  background.js           │       │  JSZip / export                 ││
+│       │                  │       │                                  ││
+│  offscreen.js (WS) ──────├───────┼────────────────────────────────┘│
+└──────────────────────────┘       └──────────────────────────────────┘
          │                                    │
-         └────────── WebSocket ───────────────┘
-                          │
-               ┌──────────▼──────────────────────┐
-               │  Backend FastAPI :8000           │
-               │                                  │
-               │  ┌─ WebSocket relay ─────────┐   │
-               │  │  /ws/extension            │   │
-               │  │  /ws/dashboard            │   │
-               │  └───────────────────────────┘   │
-               │                                  │
-               │  ┌─ Scraping statique (httpx) ─┐ │
-               │  │  GET /scrape/html           │ │
-               │  │  GET /scrape/selectors      │ │
-               │  └─────────────────────────────┘ │
-               │                                  │
-               │  ┌─ Scraping JS (Playwright) ──┐ │
-               │  │  POST /scrape/playwright    │ │
-               │  │  (stealth + profile + proxy)│ │
-               │  └─────────────────────────────┘ │
-               │                                  │
-               │  /health                         │
-               └──────────────────────────────────┘
+         └────────── WebSocket (WSS) ─────────┘
+                           │
+                ┌──────────▼───────────────────────────┐
+                │  Backend (Render)                    │
+                │  https://ghostscrape.onrender.com     │
+                │                                      │
+                │  ┌─ WebSocket relay ────────────┐    │
+                │  │  /ws/extension               │    │
+                │  │  /ws/dashboard               │    │
+                │  └──────────────────────────────┘    │
+                │                                      │
+                │  ┌─ Scraping statique (httpx) ───┐   │
+                │  │  GET /scrape/html              │   │
+                │  │  GET /scrape/selectors         │   │
+                │  └────────────────────────────────┘   │
+                │                                      │
+                │  ┌─ Scraping JS (Playwright) ─────┐  │
+                │  │  POST /scrape/playwright       │  │
+                │  │  (stealth + profile + proxy)   │  │
+                │  └────────────────────────────────┘  │
+                │                                      │
+                │  /health                             │
+                └──────────────────────────────────────┘
 ```
 
 ### Flux de données
@@ -166,172 +214,88 @@ Le backend embarque **2 moteurs de scraping** :
 
 ---
 
-## Prérequis
+## Utilisation
+
+1. **Ouvrir le dashboard** : [https://ghostscrape-front.netlify.app](https://ghostscrape-front.netlify.app)
+2. **L'extension doit être chargée** dans Chrome (`chrome://extensions`)
+3. **Naviguer** sur n'importe quelle page web
+4. **Choisir un mode** dans la sidebar (FullPage, DataTypes, CssSelector)
+5. **Lancer l'extraction** → les résultats apparaissent en temps réel
+6. **Exporter** en CSV ou ZIP
+
+---
+
+## Développement local
+
+Pour contribuer ou exécuter le projet en local (sans dépendre des services hébergés).
+
+### Prérequis (développement)
 
 - **Chrome** ou **Edge** (pour l'extension)
 - **Docker** (recommandé — évite les problèmes de versions Python/Node.js)
   - Windows : Docker Desktop (WSL2 backend recommandé)
   - macOS : Docker Desktop ou OrbStack
   - Linux : Docker Engine + docker compose plugin
-- **Node.js 18+** (uniquement si vous installez sans Docker)
-- **Python 3.12.x** (uniquement si vous installez sans Docker)
+- **Node.js 18+** (uniquement sans Docker)
+- **Python 3.12.x** (uniquement sans Docker)
 - **Make** optionnel — `make` (Linux/macOS) ou `mingw32-make` (Windows)
 
----
-
-## Installation
-
-### Option Docker (recommandé — multiplateforme)
+### Docker
 
 **Sans Node.js installé :**
 ```bash
-# 1. Builder le frontend (une seule fois, --rm nettoie le conteneur après)
 docker compose run --rm frontend-builder
-
-# 2. Lancer tous les services
 docker compose up -d
 ```
 
 **Avec Node.js installé :**
 ```bash
-# 1. Builder le frontend manuellement
 cd frontend && npm install && npm run build
-
-# 2. Lancer tous les services
 docker compose up -d --build
 ```
 
-Le dashboard est accessible sur `http://localhost:3000`.
-Le backend est accessible sur `http://localhost:8000`.
+Dashboard : `http://localhost:3000`
+Backend : `http://localhost:8000`
 
-**Étapes suivantes (quel que soit le mode) :**
-1. Charger l'extension dans Chrome : `chrome://extensions` → Mode développeur → Charger extension non empaquetée → dossier `extension/`
-2. Ouvrir `http://localhost:3000` dans Chrome
-
-### Option rapide — Scripts automatisés
+### Scripts automatisés
 
 **Windows (PowerShell uniquement) :**
 ```powershell
-.\setup.ps1      # Vérifie Python 3.12 + Node 18+, installe tout
-.\start-dev.ps1  # Lance backend + frontend en parallèle
+.\setup.ps1
+.\start-dev.ps1
 ```
 
 **Linux / macOS :**
 ```bash
 chmod +x setup.sh run.sh
-./setup.sh       # Vérifie Python 3.12, crée le venv, installe tout
-./run.sh         # Lance backend + frontend en parallèle
+./setup.sh
+./run.sh
 ```
 
-Puis chargez l'extension dans Chrome → [étape 3](#3-extension-chrome).
+### Manuel
 
-### Option manuelle
-
-> **Windows :** utilisez impérativement **PowerShell** (pas CMD, pas Git Bash).  
-> **Linux / macOS :** utilisez bash ou zsh standard.
-
-### 1. Backend (Python/FastAPI)
+**Windows :** utilisez impérativement **PowerShell** (pas CMD, pas Git Bash).
+**Linux / macOS :** utilisez bash ou zsh standard.
 
 ```powershell
-# Créer l'environnement virtuel
+# Backend
 python3.12 -m venv backend\venv
-
-# Installer les dépendances (sans activation)
 .\backend\venv\Scripts\pip install --upgrade pip setuptools wheel
 .\backend\venv\Scripts\pip install -r backend\requirements.txt
-
-# Lancer le serveur (rester à la racine du projet)
 .\backend\venv\Scripts\uvicorn app.main:app --reload --port 8000
-```
 
-Le backend est accessible sur `http://localhost:8000`.
-- WebSocket extension : `ws://localhost:8000/ws/extension`
-- WebSocket dashboard : `ws://localhost:8000/ws/dashboard`
-- Health check : `GET http://localhost:8000/health`
-
-### 2. Frontend (React/Vite)
-
-```powershell
+# Frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-Le frontend est accessible sur `http://localhost:3000`
-
-Le proxy Vite redirige `/api/*` vers `http://localhost:8000`.
-
-### 3. Extension Chrome
-
-1. Ouvrir Chrome et naviguer vers `chrome://extensions`
-2. Activer le **Mode développeur** (coin supérieur droit)
-3. Cliquer sur **Charger l'extension non empaquetée**
-4. Sélectionner le dossier `extension/` du projet
-5. L'icône GhostScrape apparaît dans la barre d'outils
-
-> **Popups et onglets locaux :** l'extension peut nécessiter l'activation des permissions sur les pages `chrome://extensions` ou `localhost` depuis `chrome://extensions/?ignore=localhost` selon la configuration.
-
-### 4. Makefile (optionnel — cross-platform)
+### Makefile
 
 ```bash
-# Voir les commandes disponibles
 make help                      # Linux/macOS
 mingw32-make help              # Windows
-
-# Installer tout
-make install                   # Linux/macOS
-mingw32-make PYTHON="py -3.12" install  # Windows
-
-# Lancer les serveurs (terminal 1 : backend, terminal 2 : frontend)
-make dev-backend               # Linux/macOS
-make dev-frontend              # Linux/macOS
 ```
-
----
-
-## Dépannage
-
-### Docker Desktop — overlayfs / read-only file system (Windows)
-
-Si le build Docker échoue avec `read-only file system` :
-```powershell
-# 1. Nettoyer le cache Docker
-docker system prune -a
-
-# 2. Redémarrer Docker Desktop (icône tray → Restart)
-
-# 3. Rebuilder
-docker compose build --no-cache backend
-```
-
-### Docker ne répond pas (timeout sur `docker ps`)
-
-Docker Desktop est probablement arrêté :
-1. Lancez Docker Desktop manuellement depuis le menu Démarrer
-2. Attendez que l'icône soit stable (pas d'animation)
-3. Relancez la commande
-
-### Backend — CMD python3 au lieu de uvicorn
-
-Si le conteneur backend crash avec `python3: can't open file '...main.py'` :
-```powershell
-# Reconstruire l'image avec le bon CMD
-docker compose build --no-cache backend
-docker compose up -d
-```
-
----
-
-## Utilisation
-
-1. **Lancer le backend** : `.\backend\venv\Scripts\uvicorn app.main:app --reload --port 8000` (PowerShell, depuis la racine)
-2. **Lancer le frontend** : `cd frontend && npm run dev`
-3. **Charger l'extension** dans Chrome via `chrome://extensions`
-4. **Ouvrir le dashboard** : `http://localhost:3000`
-5. **Naviguer** sur n'importe quelle page web
-6. **Choisir un mode** dans la sidebar (FullPage, DataTypes, CssSelector)
-7. **Lancer l'extraction** → les résultats apparaissent en temps réel
-8. **Exporter** en CSV ou ZIP
 
 ---
 
@@ -354,6 +318,7 @@ GhostScrape/
 │   └── requirements.txt      # Dépendances Python
 │
 ├── extension/                # Extension Chrome Manifest V3
+│   ├── INSTALL.md            # Guide d'installation
 │   ├── manifest.json
 │   ├── background.js         # Service worker (gestion cycle de vie offscreen)
 │   ├── content.js            # Content script injecté (8 extracteurs DOM)
@@ -386,6 +351,7 @@ GhostScrape/
 ├── run.sh                    # Lance backend + frontend (Unix)
 ├── CAHIER_DES_CHARGES.pdf    # Cahier des charges complet (7 parties, 14 diagrammes)
 ├── Makefile                  # Automatisation build/dev (cross-platform)
+├── ARCHITECTURE.md           # Architecture technique détaillée
 └── .gitignore
 ```
 
@@ -418,8 +384,28 @@ Tests manuels HTML disponibles dans `extension/test/` :
 
 ---
 
+## Dépannage
+
+### L'extension ne se connecte pas au dashboard
+
+1. Vérifiez que l'extension est chargée dans `chrome://extensions`
+2. Ouvrez la console de l'extension : `chrome://extensions` → GhostScrape → **Inspect views: offscreen.html**
+3. Vous devriez voir `[GS Offscreen] WS connected`
+4. Si vous voyez des erreurs WebSocket, vérifiez que le backend est en ligne :
+   ```bash
+   curl https://ghostscrape.onrender.com/health
+   # → {"status":"ok"}
+   ```
+
+### Le backend ne répond pas (développement local)
+
+Voir les instructions de [Développement local](#développement-local) ci-dessus.
+
+---
+
 ## Documentation
 
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — architecture technique détaillée (C4 diagrams, data flow, anti-blocking)
 - **[CAHIER_DES_CHARGES.pdf](CAHIER_DES_CHARGES.pdf)** — spécification complète en français (7 parties, 28 sections, 14 diagrammes)
 
 ---

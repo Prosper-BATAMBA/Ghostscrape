@@ -121,14 +121,24 @@ graph TB
 
 ### Deployment Options
 
-| Component | Option 1 (Simple) | Option 2 (Production) |
+| Component | Option 1 (Local / Docker) | Option 2 (Hosted — actuel) |
 |---|---|---|
-| **Backend** | Docker container with `mcr.microsoft.com/playwright` | Same + Nginx reverse proxy with TLS |
-| **Frontend** | `npm run build` → served by Nginx in Docker | Vercel / Netlify (free) |
-| **Extension** | Load unpacked (`chrome://extensions`) | Chrome Web Store ($5 developer account) |
+| **Backend** | Docker container (localhost:8000) | **Render** — `https://ghostscrape.onrender.com` |
+| **Frontend** | Nginx in Docker (localhost:3000) | **Netlify** — `https://ghostscrape-front.netlify.app` |
+| **Extension** | Load unpacked (`chrome://extensions`) | Load unpacked (identique) |
 | **Database** | None (localStorage only) | None |
+| **Anti-sleep** | — | **UptimeRobot** — ping /health toutes les 5 min |
 
-### Docker Setup
+### Architecture hébergée
+
+```
+UptimeRobot ──ping /health──► Render (backend)
+                                    │
+Utilisateur ──► Netlify (frontend) ──┤  wss://
+              ──► Extension Chrome ──┘  wss://
+```
+
+### Docker Setup (développement local)
 
 ```yaml
 # docker-compose.yml (actuel — cf. racine du projet)
