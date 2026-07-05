@@ -16,6 +16,7 @@ let pendingQueue = []
 let activeMode = null
 let dashboardTabId = null
 let wsConnected = false
+let currentSessionId = null
 
 let creatingOffscreen = null // promise guard against parallel createDocument calls
 
@@ -102,6 +103,9 @@ function sendToContentPort(msg) {
 }
 
 function handleServerMessage(msg) {
+  if (msg._session_id) {
+    currentSessionId = msg._session_id
+  }
   console.log('[GS BG] Server msg:', msg.type, 'ports:', Object.keys(contentPorts).length)
 
   if (msg.type === 'NAVIGATE_TO') {
@@ -216,6 +220,9 @@ chrome.runtime.onConnect.addListener((port) => {
   }
 
   port.onMessage.addListener((msg) => {
+    if (currentSessionId) {
+      msg._session_id = currentSessionId
+    }
     sendToServer(msg)
   })
 

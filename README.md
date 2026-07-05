@@ -17,8 +17,8 @@
 ## Table des matières
 
 - [Aperçu](#aperçu)
-- [Démarrage rapide (30 secondes)](#démarrage-rapide-30-secondes)
 - [Installation de l'extension](#installation-de-lextension)
+- [Démarrage rapide (15 secondes)](#démarrage-rapide-15-secondes)
 - [Fonctionnalités](#fonctionnalités)
 - [Architecture](#architecture)
 - [Stack technique](#stack-technique)
@@ -50,22 +50,6 @@ Le scraping web est dominé par deux approches : les solutions **programmatiques
 
 ---
 
-## Démarrage rapide (30 secondes)
-
-```bash
-# 1. Ouvrir le dashboard
-https://ghostscrape-front.netlify.app
-
-# 2. Installer l'extension (une seule fois)
-#    Voir les instructions ci-dessous
-
-# 3. Naviguer sur une page web → cliquer Extract
-```
-
-➡️ **Aucune installation serveur.** Rien à configurer. Juste Chrome + l'extension.
-
----
-
 ## Installation de l'extension
 
 La seule chose à installer manuellement. L'extension permet de scraper le DOM réel de la page que vous visitez.
@@ -81,6 +65,18 @@ La seule chose à installer manuellement. L'extension permet de scraper le DOM r
 5. **Sélectionner le dossier `extension/`** décompressé
 
 6. ✅ **L'icône GhostScrape apparaît** dans la barre d'outils — prêt !
+
+---
+
+## Démarrage rapide (15 secondes)
+
+```bash
+# 1. Cliquer sur l'icône GhostScrape → « Open Dashboard »
+
+# 2. Naviguer sur une page web → cliquer Extract
+```
+
+➡️ **Aucune installation serveur.** Rien à configurer. Juste Chrome + l'extension.
 
 ---
 
@@ -210,8 +206,8 @@ Le backend embarque **2 moteurs de scraping** :
 
 ## Utilisation
 
-1. **Ouvrir le dashboard** : [https://ghostscrape-front.netlify.app](https://ghostscrape-front.netlify.app)
-2. **L'extension doit être chargée** dans Chrome (`chrome://extensions`)
+1. **L'extension doit être chargée** dans Chrome (`chrome://extensions`)
+2. **Cliquer sur l'icône GhostScrape** → **« Open Dashboard »** (ou ouvrir [https://ghostscrape-front.netlify.app](https://ghostscrape-front.netlify.app))
 3. **Naviguer** sur n'importe quelle page web
 4. **Choisir un mode** dans la sidebar (FullPage, DataTypes, CssSelector)
 5. **Lancer l'extraction** → les résultats apparaissent en temps réel

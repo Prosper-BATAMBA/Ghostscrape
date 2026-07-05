@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-var WS_URL = 'wss://ghostscrape.onrender.com/ws/dashboard'
+var WS_URL = (function () {
+  var sid = sessionStorage.getItem('gs_session_id')
+  if (!sid) {
+    sid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0
+      var v = c === 'x' ? r : (r & 0x3 | 0x8)
+      return v.toString(16)
+    })
+    sessionStorage.setItem('gs_session_id', sid)
+  }
+  return 'wss://ghostscrape.onrender.com/ws/dashboard?session_id=' + encodeURIComponent(sid)
+})()
 var RECONNECT_BASE = 500
 var RECONNECT_MAX = 5000
 var PING_INTERVAL = 20000
