@@ -5,7 +5,7 @@
 // background.js never touches `ws` directly anymore — it only exchanges
 // chrome.runtime messages with this document.
 
-const SERVER_URL = 'ws://localhost:8000/ws/extension'
+const SERVER_URL = 'wss://ghostscrape.onrender.com/ws/extension'
 
 let ws = null
 let connId = 0

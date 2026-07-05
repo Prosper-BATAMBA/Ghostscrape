@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-var WS_URL = 'ws://localhost:8000/ws/dashboard'
+var WS_URL = 'wss://ghostscrape.onrender.com/ws/dashboard'
 var RECONNECT_BASE = 500
 var RECONNECT_MAX = 5000
 var PING_INTERVAL = 20000

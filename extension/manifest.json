@@ -9,6 +9,10 @@
     "offscreen"
   ],
 
+  "host_permissions": [
+    "https://ghostscrape.onrender.com/*"
+  ],
+
   "background": {
     "service_worker": "background.js"
   },
