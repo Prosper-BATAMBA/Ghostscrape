@@ -168,7 +168,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // Messages from popup / dashboard via window.postMessage bridge, if any
   if (msg.type === 'GET_SERVER_URL') {
-    sendResponse({ url: 'ws://localhost:8000/ws/extension' })
+    sendResponse({ url: 'wss://ghostscrape.onrender.com/ws/extension' })
     return
   }
 
