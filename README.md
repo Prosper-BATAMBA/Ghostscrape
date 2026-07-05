@@ -70,11 +70,7 @@ https://ghostscrape-front.netlify.app
 
 La seule chose à installer manuellement. L'extension permet de scraper le DOM réel de la page que vous visitez.
 
-### Windows / macOS / Linux
-
-1. **Télécharger le dossier `extension/`** depuis [GitHub](https://github.com/Prosper-BATAMBA/Ghostscrape)
-   - Cloner le repo : `git clone https://github.com/Prosper-BATAMBA/Ghostscrape.git`
-   - Ou télécharger le ZIP depuis GitHub → décompresser
+1. **Télécharger** [extension.zip](https://github.com/Prosper-BATAMBA/Ghostscrape/raw/main/extension/extension.zip) et décompresser
 
 2. **Ouvrir Chrome** et aller sur `chrome://extensions`
 
@@ -82,11 +78,9 @@ La seule chose à installer manuellement. L'extension permet de scraper le DOM r
 
 4. **Cliquer sur « Charger l'extension non empaquetée »**
 
-5. **Sélectionner le dossier `extension/`** du projet
+5. **Sélectionner le dossier `extension/`** décompressé
 
 6. ✅ **L'icône GhostScrape apparaît** dans la barre d'outils — prêt !
-
-> **Astuce :** Pour les proches, vous pouvez zipper le dossier `extension/` et le leur envoyer. Ils suivent les mêmes étapes.
 
 ---
 

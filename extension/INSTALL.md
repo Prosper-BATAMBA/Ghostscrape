@@ -15,14 +15,9 @@
 
 ### Étape 1 — Télécharger l'extension
 
-**Option A — Dossier complet (recommandé)**
-- Recevez le dossier `extension/` complet par email, clé USB ou partage réseau
-- Gardez-le dans un endroit où vous ne le supprimerez pas (ex: `Documents/GhostScrape/extension/`)
+👉 **[Télécharger extension.zip](https://github.com/Prosper-BATAMBA/Ghostscrape/raw/main/extension/extension.zip)**
 
-**Option B — Depuis GitHub**
-```bash
-git clone https://github.com/Prosper-BATAMBA/Ghostscrape.git
-```
+Décompressez le fichier. Vous obtenez un dossier `extension/`.
 
 ### Étape 2 — Ouvrir la page des extensions
 
