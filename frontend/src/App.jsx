@@ -26,7 +26,6 @@ export default function App() {
     processedRef.current = lastMessage
     messageRouter(lastMessage, engine)
 
-    if (lastMessage.type === 'GS_READY') setUrl(lastMessage.url)
     if (lastMessage.type === 'NAVIGATE') setUrl(lastMessage.url)
   }, [lastMessage, engine])
 

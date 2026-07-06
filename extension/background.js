@@ -95,6 +95,12 @@ function setBadge(connected) {
 // ---------------------------------------------------------------------
 
 function sendToContentPort(msg) {
+  if (dashboardTabId !== null && contentPorts[dashboardTabId]) {
+    try { contentPorts[dashboardTabId].postMessage(msg) } catch (e) {
+      console.error('[GS BG] Failed to postMessage to dashboard tab:', e)
+    }
+    return
+  }
   Object.values(contentPorts).forEach(function (port) {
     try { port.postMessage(msg) } catch (e) {
       console.error('[GS BG] Failed to postMessage to port:', e)
@@ -212,7 +218,7 @@ chrome.runtime.onConnect.addListener((port) => {
     })
   }
 
-  if (activeMode && activeMode.capabilities.autoExtract !== false) {
+  if (activeMode && activeMode.capabilities.autoExtract !== false && (dashboardTabId === null || tabId === dashboardTabId)) {
     console.log('[GS BG] auto-triggering extraction for active mode:', activeMode.modeId)
     try { port.postMessage({ type: 'TRIGGER_EXTRACTION', modeId: activeMode.modeId, options: activeMode.options || {} }) } catch (e) {
       console.error('[GS BG] failed to auto-trigger extraction:', e)
@@ -222,6 +228,9 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener((msg) => {
     if (currentSessionId) {
       msg._session_id = currentSessionId
+    }
+    if (msg.type === 'GS_READY' && dashboardTabId !== null && tabId !== dashboardTabId) {
+      return
     }
     sendToServer(msg)
   })
