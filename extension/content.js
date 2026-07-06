@@ -523,14 +523,23 @@
       if (!img.src) continue
       var name = 'image-' + String(i + 1).padStart(3, '0')
       var b64 = null
+
+      // Try 1: existing <img> already in the DOM (no new request, bypasses Cloudflare)
       try {
-        b64 = await canvasToBase64(img.src)
-      } catch (_) {
-        console.warn('[GS] canvas failed, trying fetch:', img.src)
+        b64 = await domImageToBase64(img.src)
+      } catch (_) {}
+
+      // Try 2: create a new Image() element
+      if (!b64) {
+        try {
+          b64 = await newImageToBase64(img.src)
+        } catch (_) {
+          console.warn('[GS] newImage failed for:', img.src)
+        }
       }
-      if (b64) {
-        name += '.png'
-      } else {
+
+      // Try 3: fallback to fetch() (works for CDNs with CORS)
+      if (!b64) {
         try {
           var resp = await fetch(img.src, { mode: 'cors' })
           if (resp.ok) {
@@ -541,15 +550,38 @@
             b64 = b64.split(',')[1]
           }
         } catch (e) {
-          console.warn('[GS] failed to fetch image:', img.src)
+          console.warn('[GS] fetch failed for:', img.src)
         }
       }
-      if (b64) result[name] = b64
+
+      if (b64) {
+        if (name.indexOf('.') === -1) name += '.png'
+        result[name] = b64
+      }
     }
     return result
   }
 
-  async function canvasToBase64(url) {
+  function domImageToBase64(src) {
+    var els = document.querySelectorAll('img')
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i]
+      if (el.currentSrc === src || el.src === src) {
+        if (!el.complete || !el.naturalWidth) continue
+        try {
+          var canvas = document.createElement('canvas')
+          canvas.width = el.naturalWidth
+          canvas.height = el.naturalHeight
+          var ctx = canvas.getContext('2d')
+          ctx.drawImage(el, 0, 0)
+          return canvas.toDataURL('image/png').split(',')[1]
+        } catch (e) { return null }
+      }
+    }
+    return null
+  }
+
+  async function newImageToBase64(url) {
     return new Promise(function (resolve, reject) {
       var img = new Image()
       img.onload = function () {
@@ -562,7 +594,9 @@
           resolve(canvas.toDataURL('image/png').split(',')[1])
         } catch (e) { reject(e) }
       }
-      img.onerror = reject
+      img.onerror = function () {
+        reject(new Error('img load failed'))
+      }
       img.src = url
     })
   }
