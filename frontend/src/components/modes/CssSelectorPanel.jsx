@@ -227,7 +227,7 @@ export default function CssSelectorPanel({ data, onRelaunch, onCancel, send, onC
                         «{result.preview[0].text}»
                       </span>
                     )}
-                    <span className="text-surface-600">({result.preview[0]?.tag})</span>
+                    <span className="text-surface-600">({result.preview?.[0]?.tag})</span>
                   </div>
                 )}
               </div>
@@ -296,7 +296,7 @@ export default function CssSelectorPanel({ data, onRelaunch, onCancel, send, onC
               )}
             </div>
             <button
-              onClick={function () { setHasExtracted(false); onRelaunch() }}
+              onClick={function () { setHasExtracted(false) }}
               className="text-[10px] px-2 py-1 rounded bg-accent/10 hover:bg-accent/20 text-accent-300 transition-colors"
             >
               Nouvelle extraction
