@@ -521,19 +521,50 @@
     for (var i = 0; i < images.length; i++) {
       var img = images[i]
       if (!img.src) continue
+      var name = 'image-' + String(i + 1).padStart(3, '0')
+      var b64 = null
       try {
-        var resp = await fetch(img.src, { mode: 'cors' })
-        if (!resp.ok) continue
-        var blob = await resp.blob()
-        var ext = blob.type.split('/')[1] || 'jpg'
-        var name = 'image-' + String(i + 1).padStart(3, '0') + '.' + ext
-        var b64 = await blobToBase64(blob)
-        result[name] = b64.split(',')[1]
-      } catch (e) {
-        console.warn('[GS] failed to fetch image:', img.src)
+        b64 = await canvasToBase64(img.src)
+      } catch (_) {
+        console.warn('[GS] canvas failed, trying fetch:', img.src)
       }
+      if (b64) {
+        name += '.png'
+      } else {
+        try {
+          var resp = await fetch(img.src, { mode: 'cors' })
+          if (resp.ok) {
+            var blob = await resp.blob()
+            var ext = blob.type.split('/')[1] || 'jpg'
+            name += '.' + ext
+            b64 = await blobToBase64(blob)
+            b64 = b64.split(',')[1]
+          }
+        } catch (e) {
+          console.warn('[GS] failed to fetch image:', img.src)
+        }
+      }
+      if (b64) result[name] = b64
     }
     return result
+  }
+
+  async function canvasToBase64(url) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image()
+      img.onload = function () {
+        try {
+          var canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          var ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          resolve(canvas.toDataURL('image/png').split(',')[1])
+        } catch (e) { reject(e) }
+      }
+      img.onerror = reject
+      img.src = url
+    })
   }
 
   function blobToBase64(blob) {
