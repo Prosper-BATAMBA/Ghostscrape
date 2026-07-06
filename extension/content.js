@@ -7,6 +7,9 @@
 
   window.GS = window.GS || {}
 
+  // ---- Image element map (for DOM-based image extraction) ----
+  var imageElementMap = {}
+
   // ---- SelectorTools (utilities) ----
   GS.SelectorTools = {
     resolveUrl: function (url) {
@@ -272,6 +275,7 @@
   function extractImages() {
     var result = []
     var seen = new Set()
+    imageElementMap = {}
 
     document.querySelectorAll('img[src]').forEach(function (el) {
       var src = el.getAttribute('src') || el.currentSrc || el.src
@@ -280,6 +284,7 @@
       var resolved = GS.SelectorTools.resolveUrl(src)
       if (resolved && !seen.has(resolved)) {
         seen.add(resolved)
+        imageElementMap[resolved] = el
         var attrs = {}
         if (el.attributes) {
           Array.from(el.attributes).forEach(function (attr) {
@@ -563,22 +568,16 @@
   }
 
   function domImageToBase64(src) {
-    var els = document.querySelectorAll('img')
-    for (var i = 0; i < els.length; i++) {
-      var el = els[i]
-      if (el.currentSrc === src || el.src === src) {
-        if (!el.complete || !el.naturalWidth) continue
-        try {
-          var canvas = document.createElement('canvas')
-          canvas.width = el.naturalWidth
-          canvas.height = el.naturalHeight
-          var ctx = canvas.getContext('2d')
-          ctx.drawImage(el, 0, 0)
-          return canvas.toDataURL('image/png').split(',')[1]
-        } catch (e) { return null }
-      }
-    }
-    return null
+    var el = imageElementMap[src]
+    if (!el || !el.complete || !el.naturalWidth) return null
+    try {
+      var canvas = document.createElement('canvas')
+      canvas.width = el.naturalWidth
+      canvas.height = el.naturalHeight
+      var ctx = canvas.getContext('2d')
+      ctx.drawImage(el, 0, 0)
+      return canvas.toDataURL('image/png').split(',')[1]
+    } catch (e) { return null }
   }
 
   async function newImageToBase64(url) {
